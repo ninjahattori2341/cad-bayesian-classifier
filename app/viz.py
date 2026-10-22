@@ -44,4 +44,7 @@ def threshold_sweep(results):
     fig=px.line(pd.DataFrame(rows),x="threshold",y="value",color="metric",color_discrete_sequence=["#147d78","#263f5c"],markers=True,title="Mixed NB threshold sweep"); return _style(fig,360)
 def contributions_bar(contributions):
     d=pd.DataFrame({"feature":list(contributions),"log-odds contribution":list(contributions.values())})
-    fig=px.bar(d,x="log-odds contribution",y="feature",orientation="h",color="log-odds contribution",color_continuous_scale=[[0,"#708397"],[.5,"#dbe5e8"],[1,"#147d78"]],title="Feature contribution to model log-odds"); return _style(fig,350)
+    d=d.reindex(d["log-odds contribution"].abs().sort_values().index)
+    d["direction_color"]=d["log-odds contribution"].map(lambda value:"#147d78" if value>=0 else "#aa7a31")
+    fig=go.Figure(go.Bar(x=d["log-odds contribution"],y=d["feature"],orientation="h",marker_color=d["direction_color"]))
+    fig.update_layout(title="What drove this result?",showlegend=False); return _style(fig,350)

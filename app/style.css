@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:wght@600&display=swap');
+.block-container{max-width:1040px;padding-top:2rem;padding-bottom:3rem}
+h1,h2,h3{font-family:'Source Serif 4',Georgia,serif;font-weight:600;letter-spacing:-.025em}
+html,body,[class*="st-"]{font-family:Inter,Arial,sans-serif;line-height:1.6}
+.mono{font-family:'JetBrains Mono',Consolas,monospace;font-variant-numeric:tabular-nums}
+div[data-testid="stVerticalBlockBorderWrapper"]{border:1px solid rgba(120,140,155,.35);border-radius:6px;box-shadow:none}
+button{border-radius:6px!important}
+#MainMenu,footer{visibility:hidden}
+.eyebrow{font-size:.7rem;letter-spacing:.11em;text-transform:uppercase;color:#147d78;font-weight:600}
+.likelihood{font-family:'Source Serif 4',Georgia,serif;font-size:3rem;line-height:1.1;letter-spacing:-.04em}
+.muted{font-size:.85rem;opacity:.72}
+.prob-track{height:6px;background:rgba(120,140,155,.25);position:relative;margin:1.35rem 0;border-radius:2px}
+.prob-track span{display:block;height:100%;background:#147d78;border-radius:2px}
+.prob-track i{position:absolute;top:-4px;height:14px;width:1px;background:currentColor}
+@media(max-width:700px){.block-container{padding:1rem .8rem 2rem}.likelihood{font-size:2.5rem}}

@@ -1,100 +1,143 @@
 from __future__ import annotations
-import json,sys
+import json, sys, time, platform, math
+from importlib import metadata
 from pathlib import Path
 import pandas as pd
 import streamlit as st
+import plotly.graph_objects as go
 import plotly.io as pio
+
 APP_DIR=Path(__file__).resolve().parent; ROOT=APP_DIR.parent
-# Resolve data relative to this file so Streamlit Cloud's working directory
-# and the configured app entry point cannot change where the assets are read.
-PAPER_CANDIDATES=(ROOT/'paper', ROOT.parent/'reasearch_paper')
-PAPER=next((path for path in PAPER_CANDIDATES if (path/'heart_cleveland_clean.csv').is_file() and (path/'results.json').is_file()),PAPER_CANDIDATES[0])
-if not (PAPER/'heart_cleveland_clean.csv').is_file() or not (PAPER/'results.json').is_file():
-    raise FileNotFoundError(f"Required app data is missing. Expected heart_cleveland_clean.csv and results.json under {PAPER}.")
+PAPER_CANDIDATES=(ROOT/'paper',ROOT.parent/'reasearch_paper')
+PAPER=next((p for p in PAPER_CANDIDATES if (p/'heart_cleveland_clean.csv').is_file() and (p/'results.json').is_file()),PAPER_CANDIDATES[0])
+if not (PAPER/'heart_cleveland_clean.csv').is_file() or not (PAPER/'results.json').is_file(): raise FileNotFoundError(f"Missing dataset/results in {PAPER}")
 sys.path.insert(0,str(APP_DIR))
-from nb_model import MixedNaiveBayes
+from nb_model import MixedNaiveBayes, NUMERIC, CATEGORICAL
 from trace import render_trace
 import viz
-st.set_page_config(page_title="CardioRisk | Bayesian Intelligence",page_icon="CR",layout="wide")
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = False
-dark = st.sidebar.toggle("Switch to light mode" if st.session_state.dark_mode else "Switch to dark mode", key="dark_mode")
-THEME = {"paper": "#111c28" if dark else "#f5f7f8", "surface": "#192838" if dark else "#ffffff", "ink": "#e3eaf0" if dark else "#1c2c3d", "heading": "#e7eef5" if dark else "#142a43", "muted": "#aab8c5" if dark else "#657487", "line": "#34495d" if dark else "#dce4e9", "teal": "#64c2b4" if dark else "#147d78", "grid": "#2b3b4b" if dark else "#edf1f3"}
-pio.templates.default = "plotly_dark" if dark else "plotly_white"
-st.markdown("""
-<style>
-:root{--navy:#142a43;--teal:#147d78;--ink:#1c2c3d;--muted:#657487;--line:#dce4e9;--paper:#f5f7f8}
-.stApp{background:var(--paper);color:var(--ink)} [data-testid="stHeader"]{background:rgba(245,247,248,.92)}
-.block-container{max-width:1220px;padding:1.8rem 2.4rem 3rem} [data-testid="stSidebar"]{background:var(--navy);border-right:1px solid #263e57}
-[data-testid="stSidebar"] *{color:#e7eef4} h1,h2,h3{color:var(--navy);letter-spacing:-.025em} h1{font-size:2.05rem!important;font-weight:680!important}
-.brand{display:flex;align-items:center;gap:12px;padding:.35rem 0 1.25rem;border-bottom:1px solid #344c63;margin-bottom:1.25rem}
-.brand-mark{width:38px;height:38px;display:grid;place-items:center;border:1px solid #4d7382;border-radius:8px;color:#74c7bd;font-weight:750}
-.brand-name{font-weight:700;color:#fff}.brand-sub{font-size:.7rem;color:#a9bac9;letter-spacing:.08em}
-.eyebrow,.section-label{color:var(--teal);text-transform:uppercase;letter-spacing:.11em;font-size:.7rem;font-weight:750}
-.page-intro{color:var(--muted);max-width:760px;margin:.2rem 0 1.4rem;line-height:1.6}
-.safety{background:#fff;border:1px solid #e3ded1;border-left:4px solid #aa7a31;border-radius:6px;padding:.8rem 1rem;color:#4c4d4b;font-size:.84rem;margin:.3rem 0 1.4rem}
-.result-panel{background:#fff;border:1px solid var(--line);border-top:3px solid var(--teal);border-radius:8px;padding:1rem 1.2rem;height:100%}
-div[data-testid="stMetric"]{background:#fff;border:1px solid var(--line);border-radius:8px;padding:.8rem 1rem}
-.stFormSubmitButton>button[kind="primary"]{background:var(--teal);border-color:var(--teal);border-radius:6px;font-weight:650;min-height:2.6rem}
-[data-testid="stPlotlyChart"],[data-testid="stDataFrame"]{background:#fff;border:1px solid var(--line);border-radius:8px}
-div[data-testid="stExpander"]{border:1px solid var(--line);border-radius:8px;background:#fff}
-button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid #55aaa0!important;outline-offset:2px!important}
-.footer{border-top:1px solid var(--line);margin-top:2.4rem;padding-top:.9rem;color:var(--muted);font-size:.75rem}
-@media(max-width:720px){.block-container{padding:1.2rem 1rem 2rem}h1{font-size:1.7rem!important}}
-</style>""",unsafe_allow_html=True)
-st.markdown(f"""<style>
-.stApp{{background:{THEME['paper']};color:{THEME['ink']}}}[data-testid="stHeader"]{{background:{THEME['paper']}}}
-h1,h2,h3{{color:{THEME['heading']}}}.eyebrow,.section-label{{color:{THEME['teal']}}}.page-intro{{color:{THEME['muted']}}}
-.result-panel,div[data-testid="stMetric"],[data-testid="stPlotlyChart"],[data-testid="stDataFrame"],div[data-testid="stExpander"]{{background:{THEME['surface']};border-color:{THEME['line']};color:{THEME['ink']}}}
-.safety{{background:{THEME['surface']};color:{THEME['ink']};border-color:{THEME['line']}}}.footer{{border-color:{THEME['line']};color:{THEME['muted']}}}
-div[data-baseweb="select"]>div,div[data-baseweb="input"]>div{{background:{THEME['surface']};border-color:{THEME['line']}}}
-.stMarkdown,.stCaption,div[data-testid="stMetricLabel"]{{color:{THEME['ink']}}}
-div[data-testid="stMetricValue"],div[data-testid="stMetricDelta"]{{color:{THEME['ink']}}}
-div[data-baseweb="select"] span,div[data-baseweb="input"] input{{color:{THEME['ink']}}}
-div[data-testid="stSlider"] label,div[data-testid="stCheckbox"] label,div[data-testid="stRadio"] label{{color:{THEME['ink']}}}
-div[data-testid="stAlert"]{{background:{THEME['surface']};color:{THEME['ink']};border:1px solid {THEME['line']}}}
-div[data-testid="stDataFrame"] [role="grid"]{{background:{THEME['surface']};color:{THEME['ink']}}}
-</style>""",unsafe_allow_html=True)
-SAFETY="Research demonstration trained on a 1980s, single-site dataset of 303 records. This is not a medical device or diagnostic tool. In the paper's repeated cross-validation, Mixed NB calibration was lower than logistic regression (Brier 0.183 vs 0.168)."
+
+st.set_page_config(page_title="CardioRisk",layout="wide")
+st.markdown(f"<style>{(APP_DIR/'style.css').read_text(encoding='utf-8')}</style>",unsafe_allow_html=True)
+pio.templates["cardio"]=go.layout.Template(layout={"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","colorway":["#147d78","#142a43","#aa7a31","#7a9bb5"],"font":{"family":"Inter, sans-serif","size":12},"margin":{"l":24,"r":20,"t":56,"b":32},"xaxis":{"gridcolor":"rgba(120,140,155,.18)","zeroline":False},"yaxis":{"gridcolor":"rgba(120,140,155,.18)","zeroline":False}})
+pio.templates.default="cardio"
+SAFETY="Educational research demonstration trained on a historical, single-site dataset. It is not a medical device or diagnostic tool. Its probabilities are less well calibrated than logistic regression in the paper's evaluation."
+LIMITATIONS="Historical, single-site data; small sample; Gaussian departures; and conditional dependence mean these outputs must not be used for clinical decisions."
+DISCLOSURE="Generative AI tools were used as learning and editorial assistants to explain statistical concepts, revise manuscript wording and organization, review consistency between the report and project code, and suggest citation checks. The reported numerical results were generated by the documented Python pipeline; AI suggestions were not treated as evidence or as a substitute for cited sources. The author is responsible for verifying the data, code, calculations, references, and interpretations, and for understanding and explaining the work."
 @st.cache_data
 def load_data(): return pd.read_csv(PAPER/'heart_cleveland_clean.csv')
 @st.cache_data
-def load_results(): return json.loads((PAPER/'results.json').read_text())
+def load_results(): return json.loads((PAPER/'results.json').read_text(encoding='utf-8'))
 @st.cache_resource
 def load_model(): return MixedNaiveBayes().fit(load_data())
 data,results,model=load_data(),load_results(),load_model()
-st.sidebar.markdown('<div class="brand"><div class="brand-mark">CR</div><div><div class="brand-name">CardioRisk</div><div class="brand-sub">BAYESIAN INTELLIGENCE</div></div></div>',unsafe_allow_html=True)
-st.sidebar.caption("RESEARCH INTERFACE")
-page=st.sidebar.radio("Navigate",["Predict","Data & Results","About"],label_visibility="collapsed")
-st.sidebar.markdown('<div class="footer" style="border-color:#344c63;color:#adbdca">UCI Cleveland cohort · 303 records<br>Educational research use</div>',unsafe_allow_html=True)
-st.markdown(f'<div class="safety"><b>Research use only</b> &nbsp; {SAFETY}</div>',unsafe_allow_html=True)
-if page=="Predict":
-    st.markdown('<div class="eyebrow">BAYESIAN CLASSIFICATION · INTERACTIVE DEMONSTRATION</div>',unsafe_allow_html=True); st.title("Explore the model")
-    st.markdown('<div class="page-intro">Enter a hypothetical record to inspect how the paper’s mixed Gaussian and categorical Naive Bayes model combines feature likelihoods.</div>',unsafe_allow_html=True)
-    defaults={"age":55,"trestbps":130,"chol":245,"thalach":150,"cp":3,"exang":0}
-    with st.form("predict"):
-        st.markdown("**Demographic and exercise response**"); a,b,c=st.columns(3)
-        age=a.slider("Age · years",20,100,55); thalach=b.slider("Maximum heart rate · bpm",60,220,150); exang=c.selectbox("Exercise-induced angina",[0,1],format_func=lambda x:"Absent (0)" if x==0 else "Present (1)")
-        st.markdown("**Measurements and symptom category**"); d,e,f=st.columns(3)
-        trestbps=d.slider("Resting blood pressure · mm Hg",80,220,130); chol=e.slider("Serum cholesterol · mg/dl",100,600,245); cp=f.selectbox("Chest pain type",[1,2,3,4],format_func=lambda x:{1:"1 · Typical angina",2:"2 · Atypical angina",3:"3 · Non-anginal pain",4:"4 · Asymptomatic"}[x],index=2)
-        submitted=st.form_submit_button("Calculate model output",type="primary",use_container_width=True)
-    values={"age":age,"trestbps":trestbps,"chol":chol,"thalach":thalach,"cp":cp,"exang":exang}
-    theta=st.slider("Decision threshold θ",.30,.70,.50,.05,help="Changes the displayed class label. It does not change the fitted probability."); p=model.predict_one(values)
-    st.markdown('<div class="section-label">MODEL OUTPUT</div>',unsafe_allow_html=True); left,right=st.columns([1,1.5])
+st.sidebar.markdown("### CardioRisk\nBAYESIAN CLASSIFICATION")
+st.sidebar.caption("UCI Cleveland cohort · 303 records")
+st.caption("Educational research demo, not a medical tool. See About for details.")
+predict_tab,data_tab,about_tab=st.tabs(["Predict","Data & Results","About"])
+
+def set_preset(values):
+    for key,value in values.items(): st.session_state[key]=value
+
+with predict_tab:
+    st.markdown('<div class="eyebrow">BAYESIAN CLASSIFICATION</div>',unsafe_allow_html=True)
+    st.title("Heart disease risk explorer")
+    st.write("Enter a person's details to see how the model estimates heart disease likelihood and which inputs shape that result.")
+    defaults={"age":55,"trestbps":130,"chol":245,"thalach":150,"cp":3,"exang":0,"theta":0.5}
+    for key,value in defaults.items(): st.session_state.setdefault(key,value)
+    left,right=st.columns([1,1.2],gap="large")
     with left:
-        st.markdown('<div class="result-panel"><div class="eyebrow">THRESHOLDED MODEL CLASS</div>',unsafe_allow_html=True); st.subheader("Positive class" if p.probability>=theta else "Control class"); st.markdown(f'<span style="color:#657487">Decision threshold θ = {theta:.2f}</span></div>',unsafe_allow_html=True)
-    with right: st.metric("Model posterior · positive class",f"{p.probability:.1%}",help="For this hypothetical record; not a clinically validated risk estimate.")
-    st.caption("This output describes the model’s calculation for entered values. It is not a diagnosis or advice."); st.plotly_chart(viz.contributions_bar(p.contributions),use_container_width=True,config={"displayModeBar":False,"responsive":True})
-    near=min(results["threshold_sweep"],key=lambda x:abs(float(x)-theta)); st.info(f"Paper sweep nearest θ={near}: recall {results['threshold_sweep'][near]['recall']:.1%}; specificity {results['threshold_sweep'][near]['specificity']:.1%}.")
-    with st.expander("Calculation trace and model diagnostics"): render_trace(model,values,theta,PAPER/'heart_cleveland_clean.csv',data.loc[data.target==0])
-elif page=="Data & Results":
-    st.markdown('<div class="eyebrow">COHORT · DISTRIBUTIONS · EVALUATION</div>',unsafe_allow_html=True); st.title("Data & results"); st.markdown('<div class="page-intro">Interactive summaries from the cleaned Cleveland dataset and saved experimental results. Values reflect the paper’s reported pipeline.</div>',unsafe_allow_html=True)
-    st.plotly_chart(viz.class_balance(data),use_container_width=True,config={"displayModeBar":False,"responsive":True}); a,b=st.columns(2); a.plotly_chart(viz.categorical_distribution(data,"cp"),use_container_width=True,config={"displayModeBar":False,"responsive":True}); b.plotly_chart(viz.categorical_distribution(data,"exang"),use_container_width=True,config={"displayModeBar":False,"responsive":True})
-    st.plotly_chart(viz.gaussian_histograms(data),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.plotly_chart(viz.correlation_heatmaps(data),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.plotly_chart(viz.cv_metrics(results),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.plotly_chart(viz.threshold_sweep(results),use_container_width=True,config={"displayModeBar":False,"responsive":True})
-    st.markdown('<div class="section-label">SOURCE RECORDS</div>',unsafe_allow_html=True); classes=st.multiselect("Recorded target values",sorted(data.target.unique()),default=sorted(data.target.unique())); st.dataframe(data[data.target.isin(classes)],use_container_width=True,hide_index=True)
-    st.caption("ROC and reliability curves are retained in the paper figures; results.json contains their summary metrics, not individual out-of-fold probabilities.")
-else:
-    st.markdown('<div class="eyebrow">RESEARCH CONTEXT</div>',unsafe_allow_html=True); st.title("About this project"); st.markdown("A research companion for an IEEE-style study of mixed Gaussian and categorical Naive Bayes classification. Dataset: [UCI Heart Disease — Cleveland subset](https://doi.org/10.24432/C52P4X).")
-    st.subheader("Limitations"); st.write("Historical, single-site data; small sample; Gaussian departures; and conditional dependence mean these outputs must not be used for clinical decisions.")
-    st.subheader("AI-assistance disclosure"); st.write("Generative AI tools were used as learning and editorial assistants to explain statistical concepts, revise manuscript wording and organization, review consistency between the report and project code, and suggest citation checks. The reported numerical results were generated by the documented Python pipeline; AI suggestions were not treated as evidence or as a substitute for cited sources. The author is responsible for verifying the data, code, calculations, references, and interpretations, and for understanding and explaining the work.")
-st.markdown('<div class="footer">CardioRisk · Bayesian Intelligence &nbsp;|&nbsp; Educational research demonstration · UCI Cleveland cohort</div>',unsafe_allow_html=True)
+        with st.container(border=True):
+            st.subheader("Enter details")
+            p1,p2=st.columns(2)
+            p1.button("Typical healthy profile",on_click=set_preset,args=({"age":45,"trestbps":120,"chol":200,"thalach":170,"cp":3,"exang":0},),use_container_width=True)
+            p2.button("Higher-risk profile",on_click=set_preset,args=({"age":62,"trestbps":150,"chol":290,"thalach":115,"cp":4,"exang":1},),use_container_width=True)
+            age=st.slider("Age (years)",20,100,key="age")
+            trestbps=st.slider("Resting blood pressure (mm Hg)",80,220,key="trestbps")
+            chol=st.slider("Cholesterol (mg/dl)",100,600,key="chol")
+            thalach=st.slider("Max heart rate during exercise (bpm)",60,220,key="thalach")
+            cp=st.selectbox("Chest pain type",[1,2,3,4],format_func=lambda v:{1:"Typical angina",2:"Atypical angina",3:"Non-anginal pain",4:"No symptoms"}[v],key="cp")
+            exang=st.radio("Chest pain during exercise?",[0,1],format_func=lambda v:"No (0)" if v==0 else "Yes (1)",horizontal=True,key="exang")
+    values={"age":age,"trestbps":trestbps,"chol":chol,"thalach":thalach,"cp":cp,"exang":exang}
+    started=time.perf_counter(); p=model.predict_one(values); latency_ms=(time.perf_counter()-started)*1000
+    theta=float(st.session_state.get("theta",0.5)); leans="toward" if p.probability>=theta else "away from"
+    with right:
+        with st.container(border=True):
+            st.markdown('<div class="eyebrow">MODEL RESULT</div>',unsafe_allow_html=True)
+            st.markdown(f'<div class="likelihood mono">{p.probability:.0%}</div><div class="muted">Estimated likelihood of heart disease</div>',unsafe_allow_html=True)
+            st.markdown(f'<div class="prob-track"><span style="width:{p.probability*100:.3f}%"></span><i style="left:{theta*100:.2f}%"></i></div>',unsafe_allow_html=True)
+            st.write(f"The model leans {leans} heart disease for these values.")
+            st.caption("A classroom demonstration, not medical advice.")
+        with st.container(border=True):
+            st.subheader("What drove this result?")
+            st.caption("Bars pointing one way raise the estimate; bars pointing the other way lower it.")
+            st.plotly_chart(viz.contributions_bar(p.contributions),use_container_width=True,config={"displayModeBar":False,"responsive":True})
+    st.divider(); st.caption("The math behind the number.")
+    with st.expander("Stats for nerds"):
+        pred_tab,param_tab,eval_tab,env_tab=st.tabs(["This prediction","Model parameters","Evaluation","Environment"])
+        with pred_tab:
+            theta=st.slider("Decision threshold",.30,.70,.50,.05,key="theta",help="Changes the class label only, not the probability.")
+            leans="toward" if p.probability>=theta else "away from"
+            prior1=model.counts[1]/model.n_records; prior0=model.counts[0]/model.n_records
+            logodds=p.log_scores[1]-p.log_scores[0]; priorodds=model.log_prior[1]-model.log_prior[0]; llr=sum(p.contributions.values()); reconciles=abs((priorodds+llr)-logodds)<1e-10
+            st.markdown(f'<div class="mono">P(disease | x) {p.probability:.6f} · P(control | x) {1-p.probability:.6f}<br>Prior disease {prior1:.6f} · prior control {prior0:.6f}<br>Posterior log-odds {logodds:.6f} · log prior odds {priorodds:.6f}<br>Sum of feature log-likelihood ratios {llr:.6f}<br>Reconciles: {"yes" if reconciles else "no"}</div>',unsafe_allow_html=True)
+            rows=[]
+            for f in NUMERIC+CATEGORICAL:
+                v=values[f]; ld=math.exp(model.feature_log_terms(values,1)[f]); lc=math.exp(model.feature_log_terms(values,0)[f]); ratio=p.contributions[f]
+                rows.append({"Feature":f,"Entered value":v,"Likelihood · disease":ld,"Likelihood · control":lc,"Log-likelihood ratio":ratio,"Direction":"toward disease" if ratio>0 else "toward control" if ratio<0 else "neutral"})
+            st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
+            render_trace(model,values,theta,PAPER/'heart_cleveland_clean.csv',data.loc[data.target==0])
+            payload={"inputs":values,"posterior":round(p.probability,6),"prior_disease":round(prior1,6),"posterior_log_odds":round(logodds,6),"contributions":{k:round(v,6) for k,v in p.contributions.items()},"threshold":theta}
+            st.code(json.dumps(payload,indent=2),language="json")
+        with param_tab:
+            st.write("Class priors and training counts",pd.DataFrame([{"Class":c,"Count":model.counts[c],"Prior":model.counts[c]/model.n_records} for c in (0,1)]))
+            st.write("Gaussian parameters",pd.DataFrame([{"Feature":f,"Class":c,"Mean":model.means[c][f],"Standard deviation":model.variances[c][f]**.5} for f in NUMERIC for c in (0,1)]))
+            catrows=[{"Feature":f,"Class":c,"Level":v,"Likelihood":math.exp(lp)} for f in CATEGORICAL for c in (0,1) for v,lp in model.cat_log_probs[c][f].items()]
+            st.caption(f"Categorical likelihoods use add-alpha smoothing (alpha={model.alpha:g}).")
+            st.dataframe(pd.DataFrame(catrows),use_container_width=True,hide_index=True)
+        with eval_tab:
+            metrics=[]
+            for name,vals in results["cv"].items():
+                for metric,pair in vals.items(): metrics.append({"Model":name,"Metric":metric,"Mean":pair[0],"Spread (SD)":pair[1]})
+            st.dataframe(pd.DataFrame(metrics),use_container_width=True,hide_index=True)
+            sweep=[{"Threshold":float(t),**v,"Nearest":"nearest" if abs(float(t)-theta)==min(abs(float(x)-theta) for x in results["threshold_sweep"]) else ""} for t,v in results["threshold_sweep"].items()]
+            st.dataframe(pd.DataFrame(sweep),use_container_width=True,hide_index=True)
+            nearest=min(results["threshold_sweep"],key=lambda x:abs(float(x)-theta)); s=results["threshold_sweep"][nearest]
+            st.caption(f"In the paper's tests at a threshold near {nearest}, the model caught {s['recall']:.0%} of true cases and correctly cleared {s['specificity']:.0%} of healthy ones.")
+            st.caption("See Data & Results for the evaluation charts.")
+        with env_tab:
+            packages={"Python":"python","Streamlit":"streamlit","pandas":"pandas","NumPy":"numpy","Plotly":"plotly","scikit-learn":"scikit-learn"}
+            versions={label:(platform.python_version() if label=="Python" else metadata.version(pkg)) for label,pkg in packages.items()}
+            st.dataframe(pd.DataFrame([{"Package":k,"Version":v} for k,v in versions.items()]),use_container_width=True,hide_index=True)
+            target_counts=data.target.value_counts(dropna=False).sort_index()
+            st.write("Dataset",pd.DataFrame([{"File":"heart_cleveland_clean.csv","Rows":len(data),"Columns":len(data.columns),"Missing values":int(data.isna().sum().sum())}]))
+            st.write("Target value counts",target_counts.rename_axis("target").reset_index(name="count"))
+            st.write(f"Model: {type(model).__name__}; {len(NUMERIC)} Gaussian features; {len(CATEGORICAL)} categorical features; fit cached with st.cache_resource.")
+            st.write(f"Single-prediction latency: {latency_ms:.3f} ms")
+
+with data_tab:
+    st.markdown('<div class="eyebrow">COHORT AND EVALUATION</div>',unsafe_allow_html=True); st.title("Data & results"); st.write("Explore the cleaned Cleveland cohort and the paper’s evaluation summaries.")
+    positives=(data.target>0) if not set(data.target.dropna().unique()).issubset({0,1}) else data.target.astype(bool)
+    k1,k2,k3=st.columns(3); k1.metric("Patients in dataset",len(data)); k2.metric("Share with heart disease",f"{positives.mean():.1%}"); k3.metric("Inputs used",len(NUMERIC)+len(CATEGORICAL))
+    who,diff,works=st.tabs(["Who's in the data","How inputs differ","How well it works"])
+    with who:
+        st.plotly_chart(viz.class_balance(data),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.caption("The bars show the number of records in each target class.")
+        c1,c2=st.columns(2); c1.plotly_chart(viz.categorical_distribution(data,"cp"),use_container_width=True,config={"displayModeBar":False,"responsive":True}); c1.caption("Chest pain categories are displayed separately by recorded class."); c2.plotly_chart(viz.categorical_distribution(data,"exang"),use_container_width=True,config={"displayModeBar":False,"responsive":True}); c2.caption("Exercise-induced chest pain is compared by recorded class.")
+    with diff:
+        st.plotly_chart(viz.gaussian_histograms(data),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.caption("Curves show class-specific Gaussian fits over the measured values.")
+        with st.expander("Within-class correlations"): st.plotly_chart(viz.correlation_heatmaps(data),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.caption("Each panel summarizes correlations within one target class.")
+    with works:
+        st.plotly_chart(viz.cv_metrics(results),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.caption("Bars compare the saved repeated cross-validation means; whiskers show fold-to-fold standard deviation.")
+        st.plotly_chart(viz.threshold_sweep(results),use_container_width=True,config={"displayModeBar":False,"responsive":True}); st.caption("Recall and specificity vary with the chosen Mixed NB threshold.")
+    st.caption("ROC and reliability curves are retained in the paper figures; results.json contains summary metrics, not individual out-of-fold probabilities.")
+    with st.expander("Browse the raw records"):
+        classes=st.multiselect("Show patients with:",sorted(data.target.dropna().unique()),default=sorted(data.target.dropna().unique())); st.dataframe(data[data.target.isin(classes)],use_container_width=True)
+        st.write("Numeric summary",data[list(NUMERIC)].describe().T); st.write("Missing values",data.isna().sum().rename("Missing").to_frame())
+
+with about_tab:
+    st.markdown('<div class="eyebrow">RESEARCH CONTEXT</div>',unsafe_allow_html=True); st.title("About this project")
+    st.subheader("What this is"); st.write("A research companion for mixed Gaussian and categorical Naive Bayes classification on the UCI Cleveland heart disease dataset."); st.markdown("Dataset: [UCI Heart Disease — Cleveland subset](https://doi.org/10.24432/C52P4X).")
+    st.subheader("How Naive Bayes works"); st.write("The model starts from how common heart disease is in the data, then updates that estimate using each input in turn. It assumes the inputs are independent given the outcome and combines their likelihoods into one estimate.")
+    st.subheader("Limitations"); st.write(LIMITATIONS)
+    st.write(SAFETY)
+    with st.expander("AI-assistance disclosure"): st.write(DISCLOSURE)
+st.caption("CardioRisk · Educational research demonstration")
