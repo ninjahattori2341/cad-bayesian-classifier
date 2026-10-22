@@ -20,18 +20,19 @@ st.set_page_config(page_title="CardioRisk",layout="wide")
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 with st.sidebar:
-    st.markdown('<div class="brand">CardioRisk</div><div class="brand-sub">BAYESIAN CLASSIFICATION</div>',unsafe_allow_html=True)
+    logo='<svg viewBox="0 0 40 40" role="img" aria-label="CardioRisk mark"><rect x="1" y="1" width="38" height="38" rx="12" fill="currentColor" opacity=".12"/><path d="M6 21h7l3-8 6 16 4-10 2 2h6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    st.markdown(f'<div class="brand-lockup">{logo}<div><div class="brand">CardioRisk</div><div class="brand-sub">RESEARCH EXPLORER</div></div></div>',unsafe_allow_html=True)
     st.caption("UCI Cleveland cohort · 303 records")
     dark=st.toggle("Dark mode",key="dark_mode")
 PALETTE={
-    "bg":"#0b1220" if dark else "#f6f7f8",
-    "surface":"#121d2b" if dark else "#ffffff",
-    "sunken":"#1b2938" if dark else "#eef1f3",
-    "text":"#e6edf5" if dark else "#1d2b3a",
-    "heading":"#f4f7fa" if dark else "#12263f",
-    "muted":"#adbbc9" if dark else "#64748b",
-    "line":"#34475b" if dark else "#dde3e8",
-    "accent":"#61c7b5" if dark else "#147d78",
+    "bg":"#0b1118" if dark else "#f4f6f7",
+    "surface":"#131d27" if dark else "#ffffff",
+    "sunken":"#1b2935" if dark else "#edf1f2",
+    "text":"#e7edf2" if dark else "#1c2b36",
+    "heading":"#f4f7f9" if dark else "#142a36",
+    "muted":"#b0bec8" if dark else "#5f707b",
+    "line":"#354754" if dark else "#dbe2e5",
+    "accent":"#70d2c0" if dark else "#087f73",
 }
 base_css=(APP_DIR/'style.css').read_text(encoding='utf-8')
 theme_css=':root {'+' '.join(f'--{key}:{value};' for key,value in PALETTE.items())+'}'
@@ -49,7 +50,7 @@ def load_results(): return json.loads((PAPER/'results.json').read_text(encoding=
 @st.cache_resource
 def load_model(): return MixedNaiveBayes().fit(load_data())
 data,results,model=load_data(),load_results(),load_model()
-st.caption("Educational research demo, not a medical tool. See About for details.")
+st.markdown('<div class="safety-banner"><span class="safety-mark">!</span><div><strong>Educational research only — not a medical device or diagnostic tool.</strong><br><span>Trained on a historical, single-site dataset of 303 records. The paper reports weaker probability calibration than logistic regression (Brier score 0.183 vs 0.168). Do not use these estimates for care decisions.</span></div></div>',unsafe_allow_html=True)
 predict_tab,data_tab,about_tab=st.tabs(["Predict","Data & Results","About"])
 
 def set_preset(values):
@@ -59,7 +60,7 @@ with predict_tab:
     st.markdown('<div class="eyebrow">BAYESIAN CLASSIFICATION</div>',unsafe_allow_html=True)
     st.title("Heart disease risk explorer")
     st.write("Enter a person's details to see how the model estimates heart disease likelihood and which inputs shape that result.")
-    defaults={"age":55,"trestbps":130,"chol":245,"thalach":150,"cp":3,"exang":0,"theta":0.5}
+    defaults={"age":55,"trestbps":130,"chol":245,"thalach":150,"cp":3,"exang":0}
     for key,value in defaults.items(): st.session_state.setdefault(key,value)
     left,right=st.columns([1,1.2],gap="large")
     with left:
@@ -76,14 +77,14 @@ with predict_tab:
             exang=st.radio("Chest pain during exercise?",[0,1],format_func=lambda v:"No (0)" if v==0 else "Yes (1)",horizontal=True,key="exang")
     values={"age":age,"trestbps":trestbps,"chol":chol,"thalach":thalach,"cp":cp,"exang":exang}
     started=time.perf_counter(); p=model.predict_one(values); latency_ms=(time.perf_counter()-started)*1000
-    theta=float(st.session_state.get("theta",0.5)); leans="toward" if p.probability>=theta else "away from"
+    theta=float(st.session_state.get("theta",0.5)); predicted_class="CAD-positive class" if p.probability>=theta else "control class"
     with right:
         with st.container(border=True):
             st.markdown('<div class="eyebrow">MODEL RESULT</div>',unsafe_allow_html=True)
             st.markdown(f'<div class="likelihood mono">{p.probability:.0%}</div><div class="muted">Estimated likelihood of heart disease</div>',unsafe_allow_html=True)
             st.markdown(f'<div class="prob-track"><span style="width:{p.probability*100:.3f}%"></span><i style="left:{theta*100:.2f}%"></i></div>',unsafe_allow_html=True)
-            st.write(f"The model leans {leans} heart disease for these values.")
-            st.caption("A classroom demonstration, not medical advice.")
+            st.markdown(f'<div class="class-output"><span class="class-dot"></span><span>Model class at threshold {theta:.2f}: <strong>{predicted_class}</strong></span></div>',unsafe_allow_html=True)
+            st.caption("A statistical output for classroom demonstration only; not an assessment of a person’s health.")
         with st.container(border=True):
             st.subheader("What drove this result?")
             st.caption("Bars pointing one way raise the estimate; bars pointing the other way lower it.")
@@ -93,7 +94,7 @@ with predict_tab:
         pred_tab,param_tab,eval_tab,env_tab=st.tabs(["This prediction","Model parameters","Evaluation","Environment"])
         with pred_tab:
             theta=st.slider("Decision threshold",.30,.70,.50,.05,key="theta",help="Changes the class label only, not the probability.")
-            leans="toward" if p.probability>=theta else "away from"
+            predicted_class="CAD-positive class" if p.probability>=theta else "control class"
             prior1=model.counts[1]/model.n_records; prior0=model.counts[0]/model.n_records
             logodds=p.log_scores[1]-p.log_scores[0]; priorodds=model.log_prior[1]-model.log_prior[0]; llr=sum(p.contributions.values()); reconciles=abs((priorodds+llr)-logodds)<1e-10
             st.markdown(f'<div class="mono">P(disease | x) {p.probability:.6f} · P(control | x) {1-p.probability:.6f}<br>Prior disease {prior1:.6f} · prior control {prior0:.6f}<br>Posterior log-odds {logodds:.6f} · log prior odds {priorodds:.6f}<br>Sum of feature log-likelihood ratios {llr:.6f}<br>Reconciles: {"yes" if reconciles else "no"}</div>',unsafe_allow_html=True)
