@@ -18,8 +18,7 @@ import viz
 st.set_page_config(page_title="CardioRisk | Bayesian Intelligence",page_icon="CR",layout="wide")
 if "appearance" not in st.session_state:
     st.session_state.appearance = "Light"
-appearance = st.sidebar.selectbox("Appearance", ["Light", "Dark"], key="appearance")
-dark = appearance == "Dark"
+dark = st.sidebar.toggle("Dark mode", key="dark_mode", help="Switch between the light and dark appearance.")
 THEME = {"paper": "#111c28" if dark else "#f5f7f8", "surface": "#192838" if dark else "#ffffff", "ink": "#e3eaf0" if dark else "#1c2c3d", "heading": "#e7eef5" if dark else "#142a43", "muted": "#aab8c5" if dark else "#657487", "line": "#34495d" if dark else "#dce4e9", "teal": "#64c2b4" if dark else "#147d78", "grid": "#2b3b4b" if dark else "#edf1f3"}
 pio.templates.default = "plotly_dark" if dark else "plotly_white"
 st.markdown("""
