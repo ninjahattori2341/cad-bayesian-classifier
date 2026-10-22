@@ -17,8 +17,26 @@ from trace import render_trace
 import viz
 
 st.set_page_config(page_title="CardioRisk",layout="wide")
-st.markdown(f"<style>{(APP_DIR/'style.css').read_text(encoding='utf-8')}</style>",unsafe_allow_html=True)
-pio.templates["cardio"]=go.layout.Template(layout={"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","colorway":["#147d78","#142a43","#aa7a31","#7a9bb5"],"font":{"family":"Inter, sans-serif","size":12},"margin":{"l":24,"r":20,"t":56,"b":32},"xaxis":{"gridcolor":"rgba(120,140,155,.18)","zeroline":False},"yaxis":{"gridcolor":"rgba(120,140,155,.18)","zeroline":False}})
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
+with st.sidebar:
+    st.markdown('<div class="brand">CardioRisk</div><div class="brand-sub">BAYESIAN CLASSIFICATION</div>',unsafe_allow_html=True)
+    st.caption("UCI Cleveland cohort · 303 records")
+    dark=st.toggle("Dark mode",key="dark_mode")
+PALETTE={
+    "bg":"#101923" if dark else "#f6f7f8",
+    "surface":"#17232f" if dark else "#ffffff",
+    "sunken":"#111c27" if dark else "#eef1f3",
+    "text":"#dbe4ec" if dark else "#1d2b3a",
+    "heading":"#eef3f8" if dark else "#12263f",
+    "muted":"#9aabba" if dark else "#64748b",
+    "line":"#2b3b4b" if dark else "#dde3e8",
+    "accent":"#64c2b4" if dark else "#147d78",
+}
+base_css=(APP_DIR/'style.css').read_text(encoding='utf-8')
+theme_css=':root {'+' '.join(f'--{key}:{value};' for key,value in PALETTE.items())+'}'
+st.markdown(f"<style>{base_css}{theme_css}</style>",unsafe_allow_html=True)
+pio.templates["cardio"]=go.layout.Template(layout={"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","colorway":[PALETTE["accent"],"#8fb1d1" if dark else "#142a43","#c99a52" if dark else "#aa7a31","#7a9bb5"],"font":{"family":"Inter, sans-serif","size":12,"color":PALETTE["text"]},"title":{"font":{"color":PALETTE["heading"]}},"margin":{"l":24,"r":20,"t":56,"b":32},"xaxis":{"gridcolor":"rgba(147,164,181,.16)" if dark else "rgba(100,116,139,.18)","zeroline":False,"tickfont":{"color":PALETTE["muted"]}},"yaxis":{"gridcolor":"rgba(147,164,181,.16)" if dark else "rgba(100,116,139,.18)","zeroline":False,"tickfont":{"color":PALETTE["muted"]}}})
 pio.templates.default="cardio"
 SAFETY="Educational research demonstration trained on a historical, single-site dataset. It is not a medical device or diagnostic tool. Its probabilities are less well calibrated than logistic regression in the paper's evaluation."
 LIMITATIONS="Historical, single-site data; small sample; Gaussian departures; and conditional dependence mean these outputs must not be used for clinical decisions."
