@@ -21,8 +21,12 @@
 /* ---------- Typography ---------- */
 .stApp h1, .stApp h2, .stApp h3 {
   font-family: 'Source Serif 4', Georgia, serif;
-  color: var(--heading); font-weight: 600; letter-spacing: -.02em;
+  color: var(--heading) !important; font-weight: 600; letter-spacing: -.02em;
 }
+.stApp [data-testid="stSubheader"],
+.stApp [data-testid="stSubheader"] *,
+.stApp [data-testid="stHeading"],
+.stApp [data-testid="stHeading"] * { color: var(--heading) !important; }
 .stApp h1 { font-size: 2.15rem; padding: .2rem 0 .5rem; }
 .stApp h2, .stApp h3 { font-size: 1.2rem; padding: .1rem 0 .4rem; }
 .eyebrow {
