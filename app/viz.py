@@ -5,14 +5,20 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from nb_model import NUMERIC
-COLORS={0:"#5b6f5b",1:"#b35f4b"}; LABELS={0:"Recorded control",1:"Recorded CAD-positive"}
+COLORS={0:"#496779",1:"#147d78"}; LABELS={0:"Recorded control",1:"Recorded CAD-positive"}
+MODEL_COLORS={"Mixed NB":"#147d78","Gaussian NB (numeric)":"#73869a","Logistic regression":"#263f5c","Decision tree (fixed)":"#b58a42"}
+def _style(fig, height=400):
+    fig.update_layout(template="plotly_white",height=height,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="#ffffff",font=dict(family="Arial, sans-serif",color="#26394d",size=12),title=dict(font=dict(size=16,color="#142a43"),x=0.02,xanchor="left"),legend=dict(orientation="h",yanchor="bottom",y=1.02,x=0),margin=dict(l=24,r=20,t=70,b=35),hoverlabel=dict(bgcolor="#142a43",font_color="white"))
+    fig.update_xaxes(showgrid=True,gridcolor="#edf1f3",zerolinecolor="#dce4e9")
+    fig.update_yaxes(showgrid=True,gridcolor="#edf1f3",zerolinecolor="#dce4e9")
+    return fig
 def _data(data):
     d=data.copy(); d["class"]=(d.target>0).astype(int); d["class_label"]=d["class"].map(LABELS); return d
 def class_balance(data):
     d=_data(data).groupby("class_label").size().reset_index(name="records")
-    return px.bar(d,x="class_label",y="records",color="class_label",title="Class balance")
+    fig=px.bar(d,x="class_label",y="records",color="class_label",color_discrete_map={LABELS[k]:v for k,v in COLORS.items()},title="Class balance",text="records"); fig.update_traces(marker_line_width=0); return _style(fig,330)
 def categorical_distribution(data,feature):
-    return px.histogram(_data(data),x=feature,color="class_label",barmode="group",histnorm="percent",title=f"{feature} distribution by recorded class")
+    fig=px.histogram(_data(data),x=feature,color="class_label",barmode="group",histnorm="percent",color_discrete_map={LABELS[k]:v for k,v in COLORS.items()},title=f"{feature} distribution by recorded class"); return _style(fig,350)
 def gaussian_histograms(data, marker=None):
     d=_data(data); fig=make_subplots(rows=2,cols=2,subplot_titles=list(NUMERIC))
     for i,f in enumerate(NUMERIC):
@@ -21,20 +27,20 @@ def gaussian_histograms(data, marker=None):
             v=d.loc[d["class"]==k,f].to_numpy(); fig.add_trace(go.Histogram(x=v,histnorm="probability density",opacity=.35,name=LABELS[k],legendgroup=str(k),showlegend=i==0,marker_color=COLORS[k]),row=r,col=c)
             xs=np.linspace(v.min(),v.max(),150); sd=v.std(ddof=0); den=np.exp(-.5*((xs-v.mean())/sd)**2)/(sd*np.sqrt(2*np.pi)); fig.add_trace(go.Scatter(x=xs,y=den,mode="lines",line=dict(color=COLORS[k]),showlegend=False),row=r,col=c)
         if marker and f in marker: fig.add_vline(x=float(marker[f]),line_dash="dot",row=r,col=c)
-    return fig.update_layout(barmode="overlay",height=620,title="Numeric distributions and fitted Gaussian densities")
+    fig.update_layout(barmode="overlay",title="Numeric distributions and fitted Gaussian densities"); return _style(fig,620)
 def correlation_heatmaps(data):
     d=_data(data); fig=make_subplots(rows=1,cols=2,subplot_titles=[LABELS[0],LABELS[1]])
     for col,k in enumerate((0,1),1):
         corr=d.loc[d["class"]==k,list(NUMERIC)].corr(); fig.add_trace(go.Heatmap(z=corr.values,x=NUMERIC,y=NUMERIC,zmin=-1,zmax=1,colorscale="RdBu"),row=1,col=col)
-    return fig.update_layout(height=430,title="Within-class correlations")
+    fig.update_layout(title="Within-class correlations"); return _style(fig,430)
 def cv_metrics(results):
     rows=[]
     for model,metrics in results["cv"].items():
         for m in ("acc","prec","rec","spec","f1","auc"): rows.append({"model":model,"metric":m.upper(),"value":metrics[m][0],"sd":metrics[m][1]})
-    return px.bar(pd.DataFrame(rows),x="metric",y="value",color="model",barmode="group",error_y="sd",title="Repeated CV metrics (mean ± SD)")
+    fig=px.bar(pd.DataFrame(rows),x="metric",y="value",color="model",color_discrete_map=MODEL_COLORS,barmode="group",error_y="sd",title="Repeated CV metrics · mean ± SD"); return _style(fig,430)
 def threshold_sweep(results):
     rows=[{"threshold":float(t),"metric":m,"value":v} for t,x in results["threshold_sweep"].items() for m,v in x.items()]
-    return px.line(pd.DataFrame(rows),x="threshold",y="value",color="metric",markers=True,title="Mixed NB threshold sweep")
+    fig=px.line(pd.DataFrame(rows),x="threshold",y="value",color="metric",color_discrete_sequence=["#147d78","#263f5c"],markers=True,title="Mixed NB threshold sweep"); return _style(fig,360)
 def contributions_bar(contributions):
     d=pd.DataFrame({"feature":list(contributions),"log-odds contribution":list(contributions.values())})
-    return px.bar(d,x="log-odds contribution",y="feature",orientation="h",color="log-odds contribution",color_continuous_scale="RdYlGn",title="Per-feature log-odds contributions")
+    fig=px.bar(d,x="log-odds contribution",y="feature",orientation="h",color="log-odds contribution",color_continuous_scale=[[0,"#708397"],[.5,"#dbe5e8"],[1,"#147d78"]],title="Feature contribution to model log-odds"); return _style(fig,350)
