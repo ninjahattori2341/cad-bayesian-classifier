@@ -33,17 +33,18 @@ cad_app/
 │   ├── trace.py          # Calculation trace
 │   └── viz.py            # Plotly figure builders
 ├── tests/test_model.py
+├── paper/                 # Paper PDF/source, dataset, results, figures, experiment code
 ├── .streamlit/config.toml
 ├── requirements.txt
 ├── LICENSE
 └── README.md
 ```
 
-Keep `cad_app/` next to `reasearch_paper/`. The application reads these relative paper inputs:
+When used inside the original coursework folder, the app reads the sibling paper inputs. A standalone GitHub clone instead uses the identical tracked copies under `paper/`:
 
 ```text
-../reasearch_paper/heart_cleveland_clean.csv
-../reasearch_paper/results.json
+../reasearch_paper/heart_cleveland_clean.csv  (coursework folder)
+paper/heart_cleveland_clean.csv                (standalone clone)
 ```
 
 ## Install and run
@@ -72,10 +73,10 @@ The test suite checks the 164/139 class counts, verifies that feature contributi
 
 ## Reproduce the paper
 
-The paper-source files remain in `../reasearch_paper/`. To regenerate its results and figures:
+The GitHub package in `paper/` contains the final anonymous PDF and LaTeX source alongside the data, figures, saved results, and experiment scripts. To regenerate its results and figures from that package:
 
 ```powershell
-cd ..\reasearch_paper
+cd paper
 python experiments.py
 ```
 

@@ -3,7 +3,11 @@ import json,sys
 from pathlib import Path
 import pandas as pd
 import streamlit as st
-APP_DIR=Path(__file__).resolve().parent; ROOT=APP_DIR.parents[1]; PAPER=ROOT.parent/'reasearch_paper'; sys.path.insert(0,str(APP_DIR))
+APP_DIR=Path(__file__).resolve().parent; ROOT=APP_DIR.parents[1]
+# Use the original paper directory during local development, or the packaged
+# paper materials when this repository is cloned on its own.
+PAPER=ROOT/'paper' if (ROOT/'paper'/'heart_cleveland_clean.csv').exists() else ROOT.parent/'reasearch_paper'
+sys.path.insert(0,str(APP_DIR))
 from nb_model import MixedNaiveBayes
 from trace import render_trace
 import viz
