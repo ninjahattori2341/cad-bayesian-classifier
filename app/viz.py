@@ -8,9 +8,10 @@ from nb_model import NUMERIC
 COLORS={0:"#496779",1:"#147d78"}; LABELS={0:"Recorded control",1:"Recorded CAD-positive"}
 MODEL_COLORS={"Mixed NB":"#147d78","Gaussian NB (numeric)":"#73869a","Logistic regression":"#263f5c","Decision tree (fixed)":"#b58a42"}
 def _style(fig, height=400):
-    fig.update_layout(template="plotly_white",height=height,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="#ffffff",font=dict(family="Arial, sans-serif",color="#26394d",size=12),title=dict(font=dict(size=16,color="#142a43"),x=0.02,xanchor="left"),legend=dict(orientation="h",yanchor="bottom",y=1.02,x=0),margin=dict(l=24,r=20,t=70,b=35),hoverlabel=dict(bgcolor="#142a43",font_color="white"))
-    fig.update_xaxes(showgrid=True,gridcolor="#edf1f3",zerolinecolor="#dce4e9")
-    fig.update_yaxes(showgrid=True,gridcolor="#edf1f3",zerolinecolor="#dce4e9")
+    dark=px.defaults.template=="plotly_dark"; bg="#192838" if dark else "#ffffff"; ink="#e3eaf0" if dark else "#26394d"; grid="#2b3b4b" if dark else "#edf1f3"; navy="#e7eef5" if dark else "#142a43"
+    fig.update_layout(template="plotly_dark" if dark else "plotly_white",height=height,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor=bg,font=dict(family="Arial, sans-serif",color=ink,size=12),title=dict(font=dict(size=16,color=navy),x=0.02,xanchor="left"),legend=dict(orientation="h",yanchor="bottom",y=1.02,x=0),margin=dict(l=24,r=20,t=70,b=35),hoverlabel=dict(bgcolor="#142a43",font_color="white"))
+    fig.update_xaxes(showgrid=True,gridcolor=grid,zerolinecolor=grid)
+    fig.update_yaxes(showgrid=True,gridcolor=grid,zerolinecolor=grid)
     return fig
 def _data(data):
     d=data.copy(); d["class"]=(d.target>0).astype(int); d["class_label"]=d["class"].map(LABELS); return d

@@ -16,9 +16,9 @@ from nb_model import MixedNaiveBayes
 from trace import render_trace
 import viz
 st.set_page_config(page_title="CardioRisk | Bayesian Intelligence",page_icon="CR",layout="wide")
-if "appearance" not in st.session_state:
-    st.session_state.appearance = "Light"
-dark = st.sidebar.toggle("Dark mode", key="dark_mode", help="Switch between the light and dark appearance.")
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
+dark = st.sidebar.toggle("Switch to light mode" if st.session_state.dark_mode else "Switch to dark mode", key="dark_mode")
 THEME = {"paper": "#111c28" if dark else "#f5f7f8", "surface": "#192838" if dark else "#ffffff", "ink": "#e3eaf0" if dark else "#1c2c3d", "heading": "#e7eef5" if dark else "#142a43", "muted": "#aab8c5" if dark else "#657487", "line": "#34495d" if dark else "#dce4e9", "teal": "#64c2b4" if dark else "#147d78", "grid": "#2b3b4b" if dark else "#edf1f3"}
 pio.templates.default = "plotly_dark" if dark else "plotly_white"
 st.markdown("""
@@ -49,6 +49,11 @@ h1,h2,h3{{color:{THEME['heading']}}}.eyebrow,.section-label{{color:{THEME['teal'
 .safety{{background:{THEME['surface']};color:{THEME['ink']};border-color:{THEME['line']}}}.footer{{border-color:{THEME['line']};color:{THEME['muted']}}}
 div[data-baseweb="select"]>div,div[data-baseweb="input"]>div{{background:{THEME['surface']};border-color:{THEME['line']}}}
 .stMarkdown,.stCaption,div[data-testid="stMetricLabel"]{{color:{THEME['ink']}}}
+div[data-testid="stMetricValue"],div[data-testid="stMetricDelta"]{{color:{THEME['ink']}}}
+div[data-baseweb="select"] span,div[data-baseweb="input"] input{{color:{THEME['ink']}}}
+div[data-testid="stSlider"] label,div[data-testid="stCheckbox"] label,div[data-testid="stRadio"] label{{color:{THEME['ink']}}}
+div[data-testid="stAlert"]{{background:{THEME['surface']};color:{THEME['ink']};border:1px solid {THEME['line']}}}
+div[data-testid="stDataFrame"] [role="grid"]{{background:{THEME['surface']};color:{THEME['ink']}}}
 </style>""",unsafe_allow_html=True)
 SAFETY="Research demonstration trained on a 1980s, single-site dataset of 303 records. This is not a medical device or diagnostic tool. In the paper's repeated cross-validation, Mixed NB calibration was lower than logistic regression (Brier 0.183 vs 0.168)."
 @st.cache_data
