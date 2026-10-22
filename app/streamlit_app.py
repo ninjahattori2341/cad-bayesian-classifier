@@ -48,8 +48,6 @@ def load_results(): return json.loads((PAPER/'results.json').read_text(encoding=
 @st.cache_resource
 def load_model(): return MixedNaiveBayes().fit(load_data())
 data,results,model=load_data(),load_results(),load_model()
-st.sidebar.markdown("### CardioRisk\nBAYESIAN CLASSIFICATION")
-st.sidebar.caption("UCI Cleveland cohort · 303 records")
 st.caption("Educational research demo, not a medical tool. See About for details.")
 predict_tab,data_tab,about_tab=st.tabs(["Predict","Data & Results","About"])
 
