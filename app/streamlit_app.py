@@ -3,6 +3,7 @@ import json,sys
 from pathlib import Path
 import pandas as pd
 import streamlit as st
+import plotly.io as pio
 APP_DIR=Path(__file__).resolve().parent; ROOT=APP_DIR.parent
 # Resolve data relative to this file so Streamlit Cloud's working directory
 # and the configured app entry point cannot change where the assets are read.
@@ -15,6 +16,12 @@ from nb_model import MixedNaiveBayes
 from trace import render_trace
 import viz
 st.set_page_config(page_title="CardioRisk | Bayesian Intelligence",page_icon="CR",layout="wide")
+if "appearance" not in st.session_state:
+    st.session_state.appearance = "Light"
+appearance = st.sidebar.selectbox("Appearance", ["Light", "Dark"], key="appearance")
+dark = appearance == "Dark"
+THEME = {"paper": "#111c28" if dark else "#f5f7f8", "surface": "#192838" if dark else "#ffffff", "ink": "#e3eaf0" if dark else "#1c2c3d", "heading": "#e7eef5" if dark else "#142a43", "muted": "#aab8c5" if dark else "#657487", "line": "#34495d" if dark else "#dce4e9", "teal": "#64c2b4" if dark else "#147d78", "grid": "#2b3b4b" if dark else "#edf1f3"}
+pio.templates.default = "plotly_dark" if dark else "plotly_white"
 st.markdown("""
 <style>
 :root{--navy:#142a43;--teal:#147d78;--ink:#1c2c3d;--muted:#657487;--line:#dce4e9;--paper:#f5f7f8}
@@ -35,6 +42,14 @@ div[data-testid="stExpander"]{border:1px solid var(--line);border-radius:8px;bac
 button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid #55aaa0!important;outline-offset:2px!important}
 .footer{border-top:1px solid var(--line);margin-top:2.4rem;padding-top:.9rem;color:var(--muted);font-size:.75rem}
 @media(max-width:720px){.block-container{padding:1.2rem 1rem 2rem}h1{font-size:1.7rem!important}}
+</style>""",unsafe_allow_html=True)
+st.markdown(f"""<style>
+.stApp{{background:{THEME['paper']};color:{THEME['ink']}}}[data-testid="stHeader"]{{background:{THEME['paper']}}}
+h1,h2,h3{{color:{THEME['heading']}}}.eyebrow,.section-label{{color:{THEME['teal']}}}.page-intro{{color:{THEME['muted']}}}
+.result-panel,div[data-testid="stMetric"],[data-testid="stPlotlyChart"],[data-testid="stDataFrame"],div[data-testid="stExpander"]{{background:{THEME['surface']};border-color:{THEME['line']};color:{THEME['ink']}}}
+.safety{{background:{THEME['surface']};color:{THEME['ink']};border-color:{THEME['line']}}}.footer{{border-color:{THEME['line']};color:{THEME['muted']}}}
+div[data-baseweb="select"]>div,div[data-baseweb="input"]>div{{background:{THEME['surface']};border-color:{THEME['line']}}}
+.stMarkdown,.stCaption,div[data-testid="stMetricLabel"]{{color:{THEME['ink']}}}
 </style>""",unsafe_allow_html=True)
 SAFETY="Research demonstration trained on a 1980s, single-site dataset of 303 records. This is not a medical device or diagnostic tool. In the paper's repeated cross-validation, Mixed NB calibration was lower than logistic regression (Brier 0.183 vs 0.168)."
 @st.cache_data
