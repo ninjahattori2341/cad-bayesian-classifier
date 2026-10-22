@@ -3,10 +3,13 @@ import json,sys
 from pathlib import Path
 import pandas as pd
 import streamlit as st
-APP_DIR=Path(__file__).resolve().parent; ROOT=APP_DIR.parents[1]
-# Use the original paper directory during local development, or the packaged
-# paper materials when this repository is cloned on its own.
-PAPER=ROOT/'paper' if (ROOT/'paper'/'heart_cleveland_clean.csv').exists() else ROOT.parent/'reasearch_paper'
+APP_DIR=Path(__file__).resolve().parent; ROOT=APP_DIR.parent
+# Resolve data relative to this file so Streamlit Cloud's working directory
+# and the configured app entry point cannot change where the assets are read.
+PAPER_CANDIDATES=(ROOT/'paper', ROOT.parent/'reasearch_paper')
+PAPER=next((path for path in PAPER_CANDIDATES if (path/'heart_cleveland_clean.csv').is_file() and (path/'results.json').is_file()),PAPER_CANDIDATES[0])
+if not (PAPER/'heart_cleveland_clean.csv').is_file() or not (PAPER/'results.json').is_file():
+    raise FileNotFoundError(f"Required app data is missing. Expected heart_cleveland_clean.csv and results.json under {PAPER}.")
 sys.path.insert(0,str(APP_DIR))
 from nb_model import MixedNaiveBayes
 from trace import render_trace
