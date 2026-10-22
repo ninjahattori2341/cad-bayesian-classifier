@@ -1,22 +1,94 @@
-# Cedar Bayes Lab
+# CAD Bayesian Classifier
 
-An educational Streamlit interface for the CAD paper's mixed Gaussian–categorical Naive Bayes experiment. It is not a medical device or diagnostic tool. It uses a historical, single-site UCI Cleveland cohort of 303 records; Mixed NB has poorer probability calibration than logistic regression in the paper (Brier 0.183 vs 0.168).
+An educational Streamlit application accompanying the research paper *Coronary Artery Disease Bayesian Classification: Derivation, Implementation, and Empirical Validation on the UCI Cleveland Dataset*.
 
-## Run
+It makes the paper's mixed Gaussian–categorical Naive Bayes model explorable: enter a hypothetical record, inspect the model output, and follow the log-space arithmetic used to produce it.
 
-Create an environment outside OneDrive, for example `C:\Users\AAYUSH\venvs\cad_app`, then from this directory run:
+> **Important:** This is an educational demonstration, not a medical device or diagnostic tool. It was trained on 303 historical records from one site in the 1980s. Do not use it to make health, treatment, or clinical decisions.
+
+## Features
+
+- **Predict:** six paper-defined inputs, a configurable threshold, a paper-result threshold trade-off, and per-feature log-odds contributions.
+- **Stats for nerds:** priors, Gaussian densities, Laplace-smoothed categorical probabilities, class scores, log-sum-exp, a waterfall chart, runtime metadata, and downloadable JSON.
+- **Independent cross-check:** compares each trace posterior with scikit-learn `GaussianNB` + `CategoricalNB`.
+- **Data & Results:** interactive class balance, categorical distributions, fitted Gaussian curves, within-class correlations, repeated-CV metrics, threshold sweep, and a filterable data table.
+- **About:** dataset provenance, limitations, and the paper's AI-assistance disclosure.
+
+## Model specification
+
+| Feature type | Features | Likelihood |
+| --- | --- | --- |
+| Continuous | `age`, `trestbps`, `chol`, `thalach` | Gaussian likelihood; MLE variance (`ddof=0`); variance floor `1e-6` |
+| Categorical | `cp` (1–4), `exang` (0–1) | Laplace-smoothed categorical likelihood; `alpha=1` |
+
+The target is `target = (num > 0)`. The dataset has 303 records: 164 controls and 139 CAD-positive records. The implementation uses log scores and log-sum-exp normalization.
+
+## Repository layout
+
+```text
+cad_app/
+├── app/
+│   ├── streamlit_app.py  # UI, navigation, paths, safety text
+│   ├── nb_model.py       # Paper-equivalent Mixed Naive Bayes
+│   ├── trace.py          # Calculation trace
+│   └── viz.py            # Plotly figure builders
+├── tests/test_model.py
+├── .streamlit/config.toml
+├── requirements.txt
+├── LICENSE
+└── README.md
+```
+
+Keep `cad_app/` next to `reasearch_paper/`. The application reads these relative paper inputs:
+
+```text
+../reasearch_paper/heart_cleveland_clean.csv
+../reasearch_paper/results.json
+```
+
+## Install and run
+
+Use Python 3.10 or later. Create the virtual environment outside OneDrive:
 
 ```powershell
+python -m venv C:\Users\AAYUSH\venvs\cad_app
+C:\Users\AAYUSH\venvs\cad_app\Scripts\Activate.ps1
+cd C:\Users\AAYUSH\OneDrive\Desktop\maths_project\cad_app
 pip install -r requirements.txt
 streamlit run app/streamlit_app.py
 ```
 
-The app reads the paper inputs through relative paths: `../reasearch_paper/heart_cleveland_clean.csv` and `../reasearch_paper/results.json`.
+Streamlit normally serves the app at `http://localhost:8501`.
+
+## Tests
+
+From `cad_app/`:
+
+```powershell
+python -m pytest tests/test_model.py -q
+```
+
+The test suite checks the 164/139 class counts, verifies that feature contributions sum to final log-odds, and matches ten posteriors against an independent scikit-learn implementation to `1e-6`.
 
 ## Reproduce the paper
 
-From `../reasearch_paper`, run `python experiments.py`, then compile `paper.tex`. The compiled paper is `../reasearch_paper/paper.pdf`. Dataset credit: [UCI Heart Disease](https://doi.org/10.24432/C52P4X), Cleveland Clinic Foundation subset.
+The paper-source files remain in `../reasearch_paper/`. To regenerate its results and figures:
+
+```powershell
+cd ..\reasearch_paper
+python experiments.py
+```
+
+This regenerates `results.json` and `figs/`. The final report source is `paper.tex`; the compiled report is `paper.pdf`.
+
+## Data source and limitations
+
+The dataset is the Cleveland Clinic Foundation subset of the [UCI Heart Disease dataset](https://doi.org/10.24432/C52P4X). It is small, historical, single-site, and its features are not conditionally independent. In repeated cross-validation, the paper found worse Mixed NB calibration than logistic regression (Brier 0.183 versus 0.168). These retrospective results do not establish clinical utility or modern generalization.
 
 ## AI-assistance disclosure
 
-Generative AI tools were used as learning and editorial assistants to explain statistical concepts, revise manuscript wording and organization, review consistency between the report and project code, and suggest citation checks. Reported numerical results were generated by the documented Python pipeline; AI suggestions were not evidence or a substitute for cited sources. The author remains responsible for verification and understanding.
+Generative AI tools were used as learning and editorial assistants to explain statistical concepts, revise manuscript wording and organization, review consistency between the report and project code, and suggest citation checks. The reported numerical results were generated by the documented Python pipeline; AI suggestions were not treated as evidence or as a substitute for cited sources. The author is responsible for verifying the data, code, calculations, references, and interpretations, and for understanding and explaining the work.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
