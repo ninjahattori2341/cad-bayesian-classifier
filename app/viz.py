@@ -16,7 +16,7 @@ def set_theme(dark):
     MODEL_COLORS={"Mixed NB":"#70d2c0","Gaussian NB (numeric)":"#a9b8c2","Logistic regression":"#8eb5d7","Decision tree (fixed)":"#dfb66f"} if IS_DARK else {"Mixed NB":"#087f73","Gaussian NB (numeric)":"#71818a","Logistic regression":"#253f50","Decision tree (fixed)":"#a97832"}
 def _style(fig, height=400):
     dark=IS_DARK; bg="#131d27" if dark else "#ffffff"; ink="#e7edf2" if dark else "#1c2b36"; grid="#354754" if dark else "#e8edef"; navy="#f4f7f9" if dark else "#142a36"; muted="#b0bec8" if dark else "#5f707b"
-    fig.update_layout(template="plotly_dark" if dark else "plotly_white",height=height,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor=bg,font=dict(family="DM Sans, sans-serif",color=ink,size=12),title=dict(font=dict(size=16,color=navy),x=0.02,xanchor="left"),legend=dict(orientation="h",yanchor="bottom",y=1.02,x=0),margin=dict(l=24,r=20,t=70,b=35),hoverlabel=dict(bgcolor="#1b2938" if dark else "#142a43",font_color=ink))
+    fig.update_layout(template="plotly_dark" if dark else "plotly_white",height=height,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor=bg,font=dict(family="DM Sans, sans-serif",color=ink,size=12),title=dict(font=dict(size=16,color=navy),x=0.02,xanchor="left"),legend=dict(orientation="h",yanchor="top",y=-0.16,x=0,xanchor="left",title=None),margin=dict(l=24,r=20,t=70,b=82),hoverlabel=dict(bgcolor="#1b2938" if dark else "#142a43",font_color=ink))
     fig.update_xaxes(showgrid=True,gridcolor=grid,zerolinecolor=grid,tickfont_color=muted)
     fig.update_yaxes(showgrid=True,gridcolor=grid,zerolinecolor=grid,tickfont_color=muted)
     return fig
