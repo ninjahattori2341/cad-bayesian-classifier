@@ -12,7 +12,17 @@ from copy_text import (
     RESULT_LABEL,
 )
 from evidence import evidence_strip
-from nb_model import NUMERIC_BOUNDS
+
+try:
+    from nb_model import NUMERIC_BOUNDS
+except ImportError:
+    # Compatibility with a Streamlit deployment running an older cached module.
+    NUMERIC_BOUNDS = {
+        'age': (20, 100),
+        'trestbps': (80, 220),
+        'chol': (100, 600),
+        'thalach': (60, 220),
+    }
 from ui_components import big_number, narrate, prob_track
 
 model=load_model(); page_intro('BAYESIAN CLASSIFICATION',PAGE_TITLE_PREDICT,PAGE_INTRO_PREDICT); v=values()
