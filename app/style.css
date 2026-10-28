@@ -80,7 +80,14 @@
 .stApp [data-testid="stPills"] [role="radio"][aria-checked="true"] { color:var(--accent-ink)!important; background:var(--accent)!important; border-color:var(--accent)!important; }
 .stApp [data-testid="stPills"] [role="radio"] p,.stApp [data-testid="stPills"] [role="radio"] span { color:inherit!important; }
 .stApp [data-baseweb="select"] span,.stApp [data-baseweb="input"] input { color:var(--text); }
+.stApp button { color:var(--text)!important; }
+.stApp button svg,.stApp [role="button"] svg { color:currentColor!important; fill:currentColor!important; stroke:currentColor!important; }
+.stApp [data-testid="stTooltipIcon"] svg,.stApp [data-testid="stPopover"] svg,.stApp [data-testid="stExpanderToggleIcon"] svg { color:var(--muted)!important; fill:var(--muted)!important; stroke:var(--muted)!important; }
+.stApp [data-testid="stCode"] button,.stApp [data-testid="stJson"] button { color:var(--text)!important; background:var(--surface-2)!important; border-color:var(--line)!important; }
+.stApp [data-testid="stCode"] button:hover,.stApp [data-testid="stJson"] button:hover { color:var(--accent)!important; background:var(--accent-soft)!important; }
+.stApp [data-baseweb="select"] svg,.stApp [data-baseweb="input"] svg { color:var(--text)!important; fill:var(--text)!important; stroke:var(--text)!important; }
 [data-baseweb="popover"] [data-baseweb="menu"],[data-baseweb="popover"] ul,[data-baseweb="popover"] li { color:var(--text); background:var(--surface); }
+[data-baseweb="popover"] svg { color:var(--text)!important; fill:var(--text)!important; stroke:var(--text)!important; }
 .stApp [data-testid="stSliderThumbValue"] { color:var(--accent); font-family:'DM Mono',monospace; font-size:.8rem; }
 .stApp [data-testid="stTickBarMin"],.stApp [data-testid="stTickBarMax"] { color:var(--muted); }
 .stApp .stButton>button { min-height:2.55rem; border:1px solid var(--line); border-radius:8px; color:var(--text); background:var(--surface); font-weight:600; transition:transform .15s ease,border-color .15s ease,background .15s ease; }
