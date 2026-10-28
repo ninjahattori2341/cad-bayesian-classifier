@@ -36,10 +36,17 @@ for f,label in [('age','Age (years)'),('trestbps','Resting blood pressure (mm Hg
     lo,hi=NUMERIC_BOUNDS[f]; v[f]=st.slider(label,lo,hi,key=f); st.markdown(evidence_strip(f,v[f],lo,hi,model),unsafe_allow_html=True)
 v['cp']=st.pills('Chest pain type',options=list(CP_LABELS),format_func=lambda x:CP_LABELS[x],key='cp') or v['cp']; st.caption('Asymptomatic means no typical chest-pain pattern in this historical cohort; it is not a claim about health.')
 v['exang']=st.pills('Exercise-induced chest pain',options=list(EXANG_LABELS),format_func=lambda x:EXANG_LABELS[x],key='exang')
-theta=st.slider('Decision threshold',.30,.70,.50,.05,key='theta',help='Changes the class label only, not the probability.')
-p=model.predict_one(v); label=CLASS_POSITIVE if p.probability>=theta else CLASS_CONTROL
-st.markdown('### Model output')
 with st.container(border=True):
-    st.caption(RESULT_LABEL); st.markdown(f'<div class="likelihood">{big_number(p.probability)}</div>',unsafe_allow_html=True); st.markdown(prob_track(p.probability,theta),unsafe_allow_html=True)
-    st.markdown(f'<div class="class-output" role="status" aria-live="polite">● Model class at threshold {theta:.2f}: <strong>{label}</strong></div>',unsafe_allow_html=True); st.caption(RESULT_CAPTION)
+    st.markdown('<div class="eyebrow">ADVANCED</div>',unsafe_allow_html=True)
+    st.markdown('#### Decision threshold')
+    st.caption('The threshold changes the class label only. It does not change the model probability.')
+    theta=st.slider('Decision threshold',.30,.70,.50,.05,key='theta',label_visibility='collapsed')
+p=model.predict_one(v); label=CLASS_POSITIVE if p.probability>=theta else CLASS_CONTROL
+st.markdown('<div class="result-heading"><div class="eyebrow">MODEL OUTPUT</div><h2>Model output</h2></div>',unsafe_allow_html=True)
+with st.container(border=True):
+    st.caption(RESULT_LABEL)
+    st.markdown(f'<div class="likelihood">{big_number(p.probability)}</div>',unsafe_allow_html=True)
+    st.markdown(prob_track(p.probability,theta),unsafe_allow_html=True)
+    st.markdown(f'<div class="class-output" role="status" aria-live="polite"><span class="class-dot"></span><span>Class at threshold {theta:.2f}: <strong>{label}</strong></span></div>',unsafe_allow_html=True)
+    st.caption(RESULT_CAPTION)
 st.subheader('What drove this result?'); st.write(narrate(p.contributions,{'cp':'chest pain type','thalach':'max heart rate','age':'age','trestbps':'resting blood pressure','chol':'cholesterol','exang':'exercise-induced pain'})); st.plotly_chart(viz.contributions_bar(p.contributions),use_container_width=True,config={'displayModeBar':False})

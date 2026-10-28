@@ -57,6 +57,9 @@
 /* Model cards and result treatment */
 .stApp [class*="st-key-card"] { background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:1.35rem 1.45rem; }
 .stApp [data-testid="stVerticalBlockBorderWrapper"] { border-color:var(--line); border-radius:14px; background:var(--surface); box-shadow:var(--shadow); }
+.result-heading { margin-top:2.25rem; padding-bottom:.35rem; }.result-heading h2 { margin:.1rem 0 0; }
+.result-heading + [data-testid="stVerticalBlockBorderWrapper"] { border:2px solid var(--accent); box-shadow:0 12px 30px rgba(8,127,115,.10); }
+.result-heading + [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stCaptionContainer"] { max-width:42rem; }
 .stApp .likelihood { color:var(--heading); font-family:'Newsreader',Georgia,serif; font-size:clamp(3rem,5vw,4.35rem); font-weight:600; letter-spacing:-.05em; line-height:1; margin:.35rem 0 .25rem; }
 .prob-track { position:relative; height:12px; margin:1.15rem 0 .55rem; overflow:visible; border:1px solid var(--line); border-radius:9px; background:linear-gradient(90deg,color-mix(in srgb,var(--control),transparent 82%),color-mix(in srgb,var(--case),transparent 82%)); }
 .prob-track span { display:block; height:100%; border-radius:9px; background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent),#91d9c8 35%)); }
