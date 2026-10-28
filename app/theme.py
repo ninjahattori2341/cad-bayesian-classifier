@@ -11,4 +11,6 @@ def inject_css(theme):
     vals=tokens(theme); css=(Path(__file__).with_name("style.css")).read_text(encoding="utf-8")
     css += ":root{"+"".join(f"--{k}:{v};" for k,v in vals.items())+"}"
     css += f":root{{color-scheme:{'dark' if theme == 'dark' else 'light'};}}"
+    if theme == "dark":
+        css += ".stApp button svg,.stApp [role='button'] svg{filter:invert(1) brightness(1.35) contrast(.9);}.stApp button:hover svg,.stApp [role='button']:hover svg{filter:invert(1) brightness(1.7) contrast(.9);}"
     st.markdown(f"<style>{css}</style>",unsafe_allow_html=True)
