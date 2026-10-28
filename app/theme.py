@@ -9,5 +9,6 @@ def current_theme(): return "dark" if st.session_state.get("dark_mode",False) el
 def tokens(theme): return dict(DARK if theme=="dark" else LIGHT)
 def inject_css(theme):
     vals=tokens(theme); css=(Path(__file__).with_name("style.css")).read_text(encoding="utf-8")
-    css += ":root[data-theme='"+theme+"']{"+"".join(f"--{k}:{v};" for k,v in vals.items())+"}"
+    css += ":root{"+"".join(f"--{k}:{v};" for k,v in vals.items())+"}"
+    css += f":root{{color-scheme:{'dark' if theme == 'dark' else 'light'};}}"
     st.markdown(f"<style>{css}</style>",unsafe_allow_html=True)
