@@ -34,11 +34,11 @@ def render_trace(model, values, theta, csv_path, controls=None):
         use_container_width=True,
         hide_index=True,
     )
-    st.markdown(r"\(\log S_c = \log P(C=c) + \sum_j \log P(x_j\mid C=c)\)")
+    st.latex(r"\log S_c = \log P(C=c) + \sum_j \log P(x_j\mid C=c)")
     st.write(f"Priors: {model.counts[0]}/{model.n_records} control records; {model.counts[1]}/{model.n_records} CAD-positive records.")
     st.markdown('**Gaussian likelihood terms**')
     st.dataframe(pd.json_normalize(t['gaussian'],sep='.').T,use_container_width=True)
-    st.markdown(r"\(P(x_j=v\mid C=c)=\frac{n_{jcv}+1}{N_c+|\mathcal K_j|}\)")
+    st.latex(r"P(x_j=v\mid C=c)=\frac{n_{jcv}+1}{N_c+|\mathcal K_j|}")
     st.markdown('**Smoothed categorical likelihood terms**')
     categorical_rows=[]
     for feature, classes in t['categorical'].items():
@@ -51,7 +51,7 @@ def render_trace(model, values, theta, csv_path, controls=None):
                 'Log likelihood': term['log_probability'],
             })
     st.dataframe(pd.DataFrame(categorical_rows), use_container_width=True, hide_index=True)
-    st.markdown(r"\(P(C=1\mid x)=\frac{e^{s_1-M}}{e^{s_0-M}+e^{s_1-M}},\quad M=\max(s_0,s_1)\)")
+    st.latex(r"P(C=1\mid x)=\frac{e^{s_1-M}}{e^{s_0-M}+e^{s_1-M}},\qquad M=\max(s_0,s_1)")
     normalization = t['log_sum_exp']
     st.dataframe(pd.DataFrame([
         {'Quantity': 'Maximum log-score M', 'Value': normalization['M']},
