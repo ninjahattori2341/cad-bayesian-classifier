@@ -12,5 +12,20 @@ def inject_css(theme):
     css += ":root{"+"".join(f"--{k}:{v};" for k,v in vals.items())+"}"
     css += f":root{{color-scheme:{'dark' if theme == 'dark' else 'light'};}}"
     if theme == "dark":
-        css += ".stApp button svg,.stApp [role='button'] svg{filter:invert(1) brightness(1.35) contrast(.9);}.stApp button:hover svg,.stApp [role='button']:hover svg{filter:invert(1) brightness(1.7) contrast(.9);}"
+        css += """
+        .stApp button,.stApp [role='button'],.stApp [data-baseweb] { color:var(--text)!important; }
+        .stApp button svg,.stApp [role='button'] svg,.stApp [data-baseweb] svg { color:var(--text)!important; }
+        .stApp button svg *, .stApp [role='button'] svg *, .stApp [data-baseweb] svg * {
+          fill:var(--text)!important; stroke:var(--text)!important;
+        }
+        .stApp button:hover svg *, .stApp [role='button']:hover svg * {
+          fill:var(--accent)!important; stroke:var(--accent)!important;
+        }
+        .stApp [data-testid='stWidgetLabel'] *, .stApp [data-testid='stCaptionContainer'] * {
+          color:var(--text)!important;
+        }
+        .stApp [data-testid='stExpander'] summary svg *, .stApp [data-testid='stTooltipIcon'] svg * {
+          fill:var(--muted)!important; stroke:var(--muted)!important;
+        }
+        """
     st.markdown(f"<style>{css}</style>",unsafe_allow_html=True)
