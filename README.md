@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-app-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-147d78.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-147d78.svg)](LICENSE) [![CI](https://github.com/ninjahattori2341/cad-bayesian-classifier/actions/workflows/ci.yml/badge.svg)](https://github.com/ninjahattori2341/cad-bayesian-classifier/actions/workflows/ci.yml)
 
 CardioRisk pairs an eight-page research paper with a runnable implementation of a mixed Gaussian and categorical Naive Bayes classifier. It is designed to make the work inspectable: readers can explore the model, follow its arithmetic for a hypothetical input, examine the cleaned cohort, and review the paper's saved evaluation results.
 
@@ -45,8 +45,8 @@ These are results on a small, historical benchmark cohort. They are not evidence
 ## Explore the app
 
 - **Predict:** adjust the six inputs and decision threshold; inspect the posterior, model class, and feature log-odds contributions.
-- **Stats for nerds:** expand the calculation trace for priors, Gaussian estimates, smoothed categorical likelihoods, class scores, posterior normalization, threshold comparison, runtime details, and an independent scikit-learn cross-check. Download the trace as JSON.
-- **Data & Results:** explore the class balance, categorical distributions, fitted Gaussian curves, within-class correlations, saved cross-validation metrics, threshold sweep, and filterable records.
+- **How it works:** follow the seven-step calculation trace for priors, Gaussian estimates, smoothed categorical likelihoods, class scores, posterior normalization, threshold comparison, runtime details, and an independent scikit-learn cross-check. Download the trace as JSON.
+- **Data / Results:** explore the class balance, fitted Gaussian curves, within-class correlations, saved cross-validation metrics, threshold sweep, and filterable records.
 - **About:** review data provenance, method assumptions, limitations, and the paper's AI-assistance disclosure.
 
 The app supports light and dark appearance modes. The cleaned CSV and results JSON are loaded from the repository's relative `paper/` directory, so a clone does not depend on a developer-specific path.
@@ -54,9 +54,16 @@ The app supports light and dark appearance modes. The cleaned CSV and results JS
 ## Repository map
 
 ```text
-cad_app/
+cad-bayesian-classifier/
 ├── app/
-│   ├── streamlit_app.py       # Streamlit pages, app state, and UI
+│   ├── streamlit_app.py       # Streamlit shell, navigation, and safety banner
+│   ├── pages_/                 # Classify, method, data, results, and about pages
+│   ├── paths.py                # Portable repository paths
+│   ├── copy.py                 # User-facing wording
+│   ├── common.py               # Cached data/model loaders
+│   ├── evidence.py             # Inline SVG evidence strips
+│   ├── theme.py                # Light/dark design tokens
+│   ├── ui_components.py        # Escaped HTML components
 │   ├── nb_model.py            # Mixed Gaussian/categorical Naive Bayes
 │   ├── trace.py               # Step-by-step arithmetic and JSON export
 │   ├── viz.py                 # Interactive Plotly chart builders
@@ -69,7 +76,7 @@ cad_app/
 │   ├── experiments.py         # Reproducible evaluation and figure generation
 │   ├── generate_paper.py      # Legacy Word export helper; not the current paper build
 │   └── figs/                  # Figures included by the paper source
-├── tests/test_model.py        # Model count, trace, and independent-check tests
+├── tests/                     # Model, trace, copy, contrast, and app smoke tests
 ├── .streamlit/config.toml     # Default Streamlit theme and server settings
 ├── requirements.txt           # App and experiment dependencies
 ├── requirements-dev.txt       # Test tooling
@@ -113,10 +120,11 @@ Install the development test dependency and run the suite from the repository ro
 
 ```bash
 python -m pip install -r requirements-dev.txt
-python -m pytest tests/test_model.py -q
+ruff check .
+python -m pytest -q
 ```
 
-The tests verify the expected class counts (164 controls / 139 CAD-positive), that feature contributions reconcile to the final log-odds, and that posteriors agree with an independent scikit-learn GaussianNB + CategoricalNB calculation on ten records within `1e-6`.
+The tests verify class counts, vectorised/scalar and scikit-learn agreement, JSON trace serialisation, frozen paper metrics, copy safety, WCAG token contrast, UI component edge cases, and a headless Streamlit smoke run.
 
 ## Reproduce the paper's experiment outputs
 

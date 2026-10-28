@@ -1,14 +1,18 @@
 """Mixed Gaussian/categorical Naive Bayes used in the CAD paper."""
 from __future__ import annotations
-import math, time
+
+import math
+import time
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+
 import numpy as np
 import pandas as pd
 
 NUMERIC = ("age", "trestbps", "chol", "thalach")
 CATEGORICAL = ("cp", "exang")
 CATEGORY_SETS = {"cp": (1, 2, 3, 4), "exang": (0, 1)}
+NUMERIC_BOUNDS = {"age": (20, 100), "trestbps": (80, 220), "chol": (100, 600), "thalach": (60, 220)}
 
 @dataclass
 class Prediction:
@@ -21,7 +25,7 @@ class MixedNaiveBayes:
     def __init__(self, alpha: float = 1.0, variance_floor: float = 1e-6):
         self.alpha, self.variance_floor = float(alpha), float(variance_floor)
 
-    def fit(self, frame: pd.DataFrame, target: str = "target") -> "MixedNaiveBayes":
+    def fit(self, frame: pd.DataFrame, target: str = "target") -> MixedNaiveBayes:
         started = time.perf_counter(); y = (frame[target].to_numpy() > 0).astype(int)
         self.n_records = int(len(frame)); self.counts = {c: int((y == c).sum()) for c in (0, 1)}
         self.log_prior = {c: math.log(self.counts[c] / self.n_records) for c in (0, 1)}
@@ -42,7 +46,7 @@ class MixedNaiveBayes:
 
     @staticmethod
     def validate_inputs(values: Mapping[str, float | int]) -> dict[str, float | int]:
-        bounds = {"age":(20,100), "trestbps":(80,220), "chol":(100,600), "thalach":(60,220)}; out={}
+        bounds = NUMERIC_BOUNDS; out={}
         for feature, (lo, hi) in bounds.items():
             value=float(values[feature])
             if not lo <= value <= hi: raise ValueError(f"{feature} must be between {lo} and {hi}.")
@@ -69,5 +73,16 @@ class MixedNaiveBayes:
         return Prediction(prob, scores, contrib, (time.perf_counter()-started)*1000)
 
     def predict_proba(self, frame: pd.DataFrame) -> np.ndarray:
-        p1=np.asarray([self.predict_one(row).probability for row in frame[list(NUMERIC+CATEGORICAL)].to_dict("records")])
-        return np.column_stack([1-p1,p1])
+        n = len(frame); scores = np.empty((n, 2))
+        for c in (0, 1):
+            total = np.full(n, self.log_prior[c])
+            for f in NUMERIC:
+                var, mean = self.variances[c][f], self.means[c][f]
+                x = frame[f].to_numpy(dtype=float)
+                total += -0.5 * np.log(2 * np.pi * var) - (x - mean) ** 2 / (2 * var)
+            for f in CATEGORICAL:
+                total += frame[f].astype(int).map(self.cat_log_probs[c][f]).to_numpy(dtype=float)
+            scores[:, c] = total
+        with np.errstate(over="ignore"):
+            p1 = 1.0 / (1.0 + np.exp(scores[:, 0] - scores[:, 1]))
+        return np.column_stack([1 - p1, p1])
