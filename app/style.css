@@ -98,6 +98,8 @@
 
 /* Tables and trace data */
 .stApp [data-testid="stDataFrame"],.stApp [data-testid="stTable"] { border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.stApp [data-testid="stJson"] { color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:10px; }
+.stApp [data-testid="stJson"] code,.stApp [data-testid="stJson"] pre { color:var(--text)!important; background:var(--surface)!important; }
 .stApp [data-testid="stCode"] { border:1px solid var(--line); border-radius:10px; }
 .stApp [data-testid="stCode"] pre,.stApp [data-testid="stCode"] code { color:var(--text)!important; background:var(--sunken)!important; font-family:'DM Mono',monospace!important; font-size:.78rem; }
 .stApp [data-testid="stPlotlyChart"] { border:1px solid var(--line); border-radius:12px; background:var(--surface); overflow:hidden; }
