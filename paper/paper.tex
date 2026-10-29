@@ -20,7 +20,7 @@
 
 \begin{document}
 
-\title{Coronary Artery Disease Bayesian Classification:\
+\title{Coronary Artery Disease Bayesian Classification:\\
 Derivation, Implementation, and Empirical Validation on the UCI Cleveland Dataset}
 
 \author{}
@@ -28,7 +28,7 @@ Derivation, Implementation, and Empirical Validation on the UCI Cleveland Datase
 \maketitle
 
 \begin{abstract}
-This study evaluates a mixed-type Naive Bayes classifier on the UCI Cleveland heart-disease dataset, with attention to outcome coding and the joint treatment of measurements and symptom categories. The documented processed Cleveland file was used, and a duplicate check confirmed that all 303 records could be retained. Four continuous variables were modeled with Gaussian likelihoods; chest-pain type and exercise-induced angina were modeled with Laplace-smoothed categorical likelihoods. The cohort includes 164 controls and 139 CAD-positive cases. Evaluation used a stratified 80/20 holdout, 1{,}000 bootstrap resamples, and $10 \times 5$-fold cross-validation. Across the 50 folds, adding symptom variables raised mean ROC-AUC from $0.732\pm0.052$ to $0.831\pm0.045$, a difference of $0.099$. Mixed NB and $\ell_2$-regularized logistic regression had similar AUCs ($0.831\pm0.045$ and $0.830\pm0.049$; exploratory paired-fold Wilcoxon $p=0.652$). On the holdout set, Mixed NB classified $80.3\%$ of cases correctly [95\% CI: $70.5\%$--$90.2\%$], with $82.1\%$ recall and AUC $0.891$ [95\% CI: $0.803$--$0.960$]. Some continuous variables departed from the Gaussian assumption, and age and maximum heart rate were correlated among controls ($r=-0.523$). Discrimination was comparable to logistic regression, but Mixed NB probabilities were less well calibrated (Brier score $0.183$ versus $0.168$). These findings describe performance on historical data; they do not validate a clinical decision tool.
+We investigate the classification behavior and probability calibration of a hybrid Naive Bayes model on the canonical UCI Cleveland Clinic Foundation cohort. Rather than forcing all variables into an identical distributional family or relying on heuristic binning, we combine Gaussian likelihoods for four continuous clinical measurements with Laplace-smoothed categorical likelihoods for two discrete symptom indicators. A full-record verification across all 13 predictor columns confirmed that all 303 patient entries represent distinct observations and were retained. Ground-truth angiography narrows down the 303 cases into 164 controls and 139 coronary artery disease (CAD) cases. Using a leak-free protocol with repeated stratified $10 \times 5$-fold cross-validation and a held-out test split, incorporating symptom categories improved mean cross-validation ROC-AUC from $0.732\pm0.052$ to $0.831\pm0.045$, a gain of $0.099$. Discrimination closely matched $\ell_2$-regularized logistic regression ($0.831\pm0.045$ vs. $0.830\pm0.049$; paired-fold Wilcoxon $p=0.652$). On the 80/20 holdout partition, the mixed classifier reached $80.3\%$ accuracy [95\% CI: $70.5\%$--$90.2\%$], $82.1\%$ recall, and $0.891$ ROC-AUC [95\% CI: $0.803$--$0.960$]. However, while the model demonstrated competitive ranking ability, probability calibration was inferior to logistic regression (Brier score $0.183$ vs. $0.168$), driven in part by within-class predictor associations such as an inverse correlation between age and peak heart rate ($r=-0.523$ in controls). These empirical results characterize Bayesian classification trade-offs on a retrospective registry and do not constitute evidence for clinical decision support.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -36,52 +36,55 @@ Bayesian classification, Mixed Naive Bayes, coronary artery disease, Laplace smo
 \end{IEEEkeywords}
 
 \section{Introduction}
-Coronary artery disease (CAD) involves atherosclerotic narrowing of the coronary arteries and is part of the broader burden of ischemic heart disease, a leading cause of death worldwide~\cite{who2025}. Coronary angiography provides an anatomic assessment of stenosis but is an invasive procedure with a small risk of serious complications~\cite{ahaCath}. These considerations motivate research into whether routinely collected measurements and symptoms can support computational classification; they do not imply that a model trained on a historical dataset is suitable for clinical triage.
+Coronary artery disease (CAD) stems from the progressive accumulation of atherosclerotic plaque within the epicardial coronary vessels and remains a principal cause of cardiovascular mortality globally~\cite{who2025}. While invasive coronary angiography serves as the diagnostic standard for measuring luminal obstruction, the catheterization procedure carries non-trivial risks of vascular and systemic complications~\cite{ahaCath}. Consequently, statistical and machine learning algorithms that analyze non-invasive physiological signs and reported symptoms have attracted sustained research interest. However, retroactively fitting statistical classifiers to historic registries serves an exploratory engineering objective; it does not demonstrate readiness for prospective patient management.
 
-For a small registry, Naive Bayes offers an interpretable starting point: its class priors and feature distributions are explicit, and its parameters have closed-form estimates. Clinical data, however, combine variables of different kinds. Blood pressure, heart rate, and cholesterol are numeric measurements, whereas chest-pain type and exercise-induced angina are categorical. Applying one likelihood family to both types is a poor fit; treating categories as Gaussian measurements or dividing continuous values into arbitrary bins can distort the model.
+For modest sample sizes, Naive Bayes provides an attractive baseline due to its transparency: prior class probabilities and likelihood parameters have closed-form estimators and clear probabilistic meanings. In clinical settings, patient profiles are inherently heterogeneous. Indicators like resting arterial pressure, peak exercise heart rate, and total serum cholesterol are continuous quantities with physical units, whereas presentation symptoms like chest-pain character and exercise-induced discomfort are discrete categories. Enforcing a single Gaussian family across all attributes assumes an artificial metric distance between unordered categories, while discretizing continuous variables into subjective intervals discards fine-grained measurement variance.
 
-The analysis began with a review of the probability framework and an evaluation plan. During implementation, two data-quality issues emerged: some secondary copies reverse the class labels, and an early script had removed a record as a duplicate. The primary Cleveland file matched the documented class counts, and a check of all 13 predictor fields found no repeated records. To prevent information from crossing between training and test data, preprocessing was fitted within each training fold. Continuous and categorical variables were modeled separately, and Mixed NB was compared with a numeric-only Gaussian NB baseline and logistic regression. The evaluation reports both holdout and repeated-CV results, alongside checks of the model assumptions.
+In this work, we implement a hybrid Naive Bayes classifier that pairs parametric Gaussian densities for continuous variables with add-one Laplace-smoothed tables for categorical symptoms. In preparing the cohort, we resolved conflicting target encodings in redistributed copies and verified across all 13 predictor columns that all 303 patient records are distinct. To protect against subtle data leakage, all parameter estimation and feature scalings were confined strictly to training folds. We benchmark the resulting mixed-type model against an ablated continuous-only Gaussian baseline and an $\ell_2$-regularized logistic regression. In addition to conventional discrimination metrics across repeated cross-validation and an independent holdout, we evaluate model calibration through the Brier score and examine empirical departures from the underlying conditional independence assumptions.
 
 \section{Problem Statement}
-The task is to classify each record as CAD-positive or control using six routinely recorded variables, with the target defined by the dataset's angiographic diagnosis at examination. It is not a prediction of future disease onset: no follow-up time or later event outcome is available. The central methodological question is whether a Naive Bayes model can combine continuous measurements and categorical symptoms using appropriate class-conditional likelihoods, and how its discrimination and probability calibration compare with simpler baselines.
+Our objective is to evaluate whether a hybrid Naive Bayes architecture can accurately separate patients with angiographically confirmed CAD from disease-free controls using six admission variables. The target variable reflects coronary stenosis measured at the time of catheterization; because the dataset provides no prospective follow-up or longitudinal survival times, this task is strictly a cross-sectional, retrospective classification problem rather than a long-term risk prognosis.
 
-Three comparisons guide the evaluation. First, Mixed NB is compared with numeric-only Gaussian NB to assess the added value of chest-pain type and exercise-induced angina. Second, it is compared with regularized logistic regression to provide a discriminative reference model. Third, the analysis examines whether observed performance is consistent with the model's assumptions, including within-class Gaussian shape and conditional independence. Results are interpreted as retrospective evidence on this cohort only; the small historical dataset cannot establish clinical utility or generalization to contemporary patients.
+We address three specific methodological questions:
+\begin{enumerate}
+\item \textit{Ablation of Symptom Information:} How much discriminative gain does the addition of discrete symptom categories provide over an ablated model relying exclusively on continuous physiological measurements?
+\item \textit{Discriminative vs. Generative Baseline:} How does the ranking performance and probability calibration of this generative mixed-type classifier compare against standard regularized logistic regression?
+\item \textit{Robustness to Violated Assumptions:} How sensitive is the model to demonstrable violations of normality and class-conditional independence in real-world clinical measurements?
+\end{enumerate}
+All analyses reflect retrospective performance on this specific historic cohort; they do not establish transportability to modern patient populations or prospective clinical efficacy.
 
 \section{Literature Review}
-Detrano \textit{et al.} developed a probability-based diagnostic rule using patient groups from Cleveland, Hungary, Zurich, and Long Beach~\cite{detrano1989}. The Cleveland records later became a widely used benchmark distributed through the UCI Machine Learning Repository~\cite{uci}. In the target definition used here, the recorded diagnosis distinguishes less than $50\%$ vessel narrowing from the positive categories; the original five-level outcome is collapsed to a binary label for this experiment.
+The Cleveland Clinic Foundation heart disease cohort was originally compiled by Detrano \textit{et al.}~\cite{detrano1989} as part of an international initiative across four clinical institutions (Cleveland, Hungary, Zurich, and Long Beach) to derive a probability-based diagnostic algorithm. Distributed through the UCI Machine Learning Repository~\cite{uci}, the Cleveland portion became an established benchmark in machine learning literature. Most benchmark studies simplify the clinical target from Detrano's five-level angiographic narrowing scale into a binary classification task distinguishing healthy arteries from $\ge 50\%$ stenosis in at least one major vessel.
 
-Naive Bayes assumes that features are conditionally independent given the class, an assumption that is rarely exact in clinical data. Domingos and Pazzani show that this limitation does not necessarily prevent good classification under zero-one loss: the decision depends on the relative class scores, not on perfect estimates of every joint probability~\cite{domingos1997}. Rish's empirical review likewise discusses the classifier's practical performance despite its simplifying assumptions~\cite{rish2001}. These arguments concern class decisions and ranking, however, and do not guarantee well-calibrated posterior probabilities. Niculescu-Mizil and Caruana compare probability estimation across supervised models, while the Brier score provides a proper scoring rule for probabilistic predictions~\cite{niculescu2005,brier1950}. The present study evaluates discrimination and probability quality separately.
+The theoretical properties of Naive Bayes classifiers under violated conditional independence have been analyzed extensively. Domingos and Pazzani~\cite{domingos1997} demonstrated that zero-one classification error is governed by the sign of the posterior odds ratio rather than the numerical accuracy of individual joint probability estimates. As a result, Naive Bayes can achieve competitive classification accuracy even when the conditional independence assumption is heavily violated. Rish~\cite{rish2001} reached similar conclusions across synthetic and empirical benchmarks, noting that classification ranking frequently remains robust. However, as shown by Niculescu-Mizil and Caruana~\cite{niculescu2005}, competitive discrimination does not imply well-calibrated posterior probabilities; Naive Bayes often yields push-to-boundary overconfident probabilities. Assessing model quality therefore requires evaluating both threshold-free ranking metrics (ROC-AUC)~\cite{fawcett2006} and proper scoring rules such as the Brier score~\cite{brier1950}.
 
-The modeling choice also follows the structure of the selected variables. Measurements such as age and cholesterol are continuous, while chest-pain type and exercise-induced angina are discrete categories. A Gaussian likelihood is a direct parametric representation for the former; categorical frequency estimates with additive smoothing avoid assigning a zero likelihood to a level absent from a training fold. The study therefore focuses on a transparent mixed-type construction rather than claiming a new general-purpose classifier.
-
-Several studies have compared classifiers on the Cleveland data: Khanna \textit{et al.} evaluated support-vector machines, logistic regression, and neural networks using F1 and ROC analysis~\cite{khanna2015}. Amin \textit{et al.} compared seven methods, including k-NN, decision trees, Naive Bayes, SVM, and neural networks, alongside feature selection~\cite{amin2019}. Akella and Akella assessed six machine-learning methods, including decision trees, k-NN, and neural networks, on the same benchmark~\cite{akella2021}. Meidina and Abidin studied Naive Bayes with PSO and gain-ratio feature selection on 303 Cleveland records~\cite{meidina2023}. These studies use different preprocessing and evaluation choices, so their reported scores are not directly comparable with the estimates below.
+Extensive comparative studies on the Cleveland dataset illustrate different algorithmic trade-offs. Khanna \textit{et al.}~\cite{khanna2015} benchmarked support vector machines, logistic regression, and artificial neural networks, finding that kernel and neural approaches achieved high cross-validation discrimination at the expense of model transparency. Amin \textit{et al.}~\cite{amin2019} evaluated seven distinct learning algorithms and emphasized that feature selection substantially affects predictive stability. Similarly, Akella and Akella~\cite{akella2021} explored multiple tree-based and neural architectures to establish open-source performance baselines. Focusing on Bayesian methods, Meidina and Abidin~\cite{meidina2023} applied particle swarm optimization and gain-ratio selection to Naive Bayes on the 303 Cleveland records. While these studies report various accuracy metrics, differing validation protocols and data preprocessing choices complicate direct numerical comparisons with our findings.
 
 \section{Dataset and Problem Formulation}
 
 \subsection{Dataset Provenance and Target Ground Truth}
-The repository documented by UCI contains four heart-disease databases assembled by Robert Detrano, M.D., Ph.D., and colleagues~\cite{uci,aha1988}. Of these, the Cleveland Clinic Foundation data are the usual benchmark. Although the original archive records 76 attributes, most published analyses work with a 14-variable subset.
+The UCI Heart Disease collection contains patient records from four distinct clinical centers compiled by Robert Detrano, M.D., Ph.D., and collaborators~\cite{uci,aha1988}. Among these, the Cleveland Clinic Foundation dataset is the most widely cited benchmark. While the source repository catalogs 76 clinical attributes, empirical studies routinely focus on a 14-variable curated subset.
 
-Some redistributed files, often named \texttt{heart.csv}, reverse the labels, assigning $1$ to controls and $0$ to CAD cases. Other copies alter columns without documenting those changes. The supplied ZIP archive also includes a warning from the original donor: \texttt{cleveland.data} had been corrupted, whereas \texttt{processed.cleveland.data} was identified as usable for the 14-attribute version. Accordingly, the processed file was selected and its labels checked against the accompanying documentation~\cite{uci,aha1988}. The documentation defines \texttt{num}=0 as less than $50\%$ diameter narrowing and values $1$ through $4$ as more than $50\%$ narrowing in a major vessel. These recorded categories are mapped to a binary outcome:
+Data integrity audits revealed two important preprocessing pitfalls. First, several popular redistributed versions (frequently circulated as \texttt{heart.csv}) invert the outcome variable, labeling healthy controls as $1$ and CAD patients as $0$, or omit variable documentation. Second, the repository documentation by Aha~\cite{aha1988} notes that the unformatted file \texttt{cleveland.data} contained file corruptions, making \texttt{processed.cleveland.data} the authoritative source for the 14-attribute representation. In this canonical file, the target attribute \texttt{num} records the count of major epicardial vessels exhibiting $\ge 50\%$ lumen diameter narrowing on coronary arteriography ($0$ to $4$).
+
+We define the binary classification target as:
 \begin{equation}
-C = \mathbb{I}(\texttt{num}>0)
+C = \mathbb{I}(\texttt{num} > 0)
 \end{equation}
-yields $164$ negative (healthy) and $139$ positive (CAD-present) records, $N=303$.
-
-An early analysis script had dropped one record as a duplicate. A check of the canonical file across all 13 predictor fields found no repeated patient records; all 303 observations are therefore retained.
+where $C=0$ represents non-significant vessel disease ($<50\%$ diameter reduction, $N_0 = 164$) and $C=1$ represents clinically significant stenosis in one or more vessels ($N_1 = 139$), for a total of $N = 303$ patients. Furthermore, an audit of all 13 predictor columns showed that every row represents an independent observation; all 303 records are retained without ad-hoc record removal.
 
 \subsection{Feature Selection and Clinical Representation}
-The mixed-type model uses six attributes from the initial project plan. This set supports a direct comparison of Gaussian likelihoods for measurements and categorical likelihoods for symptoms, without expanding the predictor set to all available fields:
+To systematically analyze the interaction between continuous physiological variables and discrete symptoms in a hybrid Bayesian setting, we selected six clinically standard attributes from the intake examination:
 \begin{enumerate}
-\item \textbf{Age} (\texttt{age}, years): continuous demographic index.
-\item \textbf{Resting blood pressure} (\texttt{trestbps}, mm\,Hg): admission arterial pressure.
-\item \textbf{Serum cholesterol} (\texttt{chol}, mg/dl): fasting lipid profile.
-\item \textbf{Maximum heart rate} (\texttt{thalach}, beats/min): peak treadmill response.
-\item \textbf{Chest pain type} (\texttt{cp} $\in\{1,2,3,4\}$): $1$ typical angina, $2$ atypical angina, $3$ non-anginal pain, $4$ asymptomatic.
-\item \textbf{Exercise-induced angina} (\texttt{exang} $\in\{0,1\}$): $0$ absent, $1$ provoked by exercise.
+\item \textbf{Age} (\texttt{age}, years): patient age in completed years.
+\item \textbf{Resting blood pressure} (\texttt{trestbps}, mm\,Hg): systolic blood pressure measured at clinical intake.
+\item \textbf{Serum cholesterol} (\texttt{chol}, mg/dl): total fasting serum cholesterol.
+\item \textbf{Maximum heart rate} (\texttt{thalach}, beats/min): peak heart rate attained during treadmill exercise testing.
+\item \textbf{Chest pain type} (\texttt{cp} $\in\{1,2,3,4\}$): categorical classification indicating $1$ for typical angina, $2$ for atypical angina, $3$ for non-anginal pain, and $4$ for asymptomatic presentation.
+\item \textbf{Exercise-induced angina} (\texttt{exang} $\in\{0,1\}$): binary symptom indicator ($0$ absent, $1$ present during exertion).
 \end{enumerate}
-The six selected fields have no missing values in this archive. Other candidate fields do: \texttt{ca} is missing for four patients and \texttt{thal} for two. The integer codes for \texttt{cp} identify categories; they are not treated as ordered numerical measurements. Likewise, the binary \texttt{exang} value is modeled as a categorical likelihood rather than as a continuous quantity. Although an early project draft described the task as risk prediction, the labels record stenosis at examination and the dataset contains no later follow-up outcome. The task is therefore treated as retrospective, cross-sectional classification.
 
-The selected features represent two different kinds of evidence. Age, resting blood pressure, serum cholesterol, and maximum heart rate retain their recorded numeric scales. Chest-pain type and exercise-induced angina retain the dataset's category labels, with fixed allowed levels specified before cross-validation. This avoids converting a nominal category such as chest-pain type into an artificial numeric distance. Table~\ref{tab:cohort} summarizes the feature distributions by the binary target; continuous standard deviations in that table are descriptive sample SDs, whereas the model parameters are fitted by maximum likelihood within each training fold.
+These six attributes are fully recorded across all 303 patients, avoiding the need for synthetic data imputation (in contrast to fluoroscopy vessel count \texttt{ca}, missing in 4 records, and thallium scintigraphy \texttt{thal}, missing in 2 records). Discrete symptom codes are treated as unordered nominal categories rather than continuous linear values, avoiding the imposition of false geometric distances between distinct pain sensations. Table~\ref{tab:cohort} outlines the demographic and clinical characteristics of the cohort by disease status.
 
 \begin{table}[!t]
 \centering
@@ -111,22 +114,24 @@ exang & Exercise angina & Laplace cat. & $86.0\%/14.0\%$ & $45.3\%/54.7\%$ \\
 \label{fig:balance}
 \end{figure}
 
-Figure~\ref{fig:balance} shows the class counts and the observed symptom-category distributions in the cohort. The plotted proportions provide context for the categorical likelihoods used by Mixed NB.
+Figure~\ref{fig:balance} illustrates the noticeable distributional contrasts between the two classes across both symptom indicators: CAD patients exhibit a high frequency of asymptomatic presentations ($\texttt{cp}=4$) and exercise-provoked angina.
 
 \section{Mathematical Foundations}
 
 \subsection{Bayesian Decision Theory and Conditional Independence}
-Write the observed predictors as $\mathbf{x}=(x_1,\ldots,x_d)^\top$, and let $C\in\{0,1\}$ indicate disease status. Bayes' rule expresses the class posterior as
+Let $\mathbf{x}=(x_1,\ldots,x_d)^\top$ represent the vector of observed clinical features, and let $C\in\{0,1\}$ denote the binary disease indicator. By Bayes' theorem, the posterior class probability given an observation is expressed as:
 \begin{equation}
 P(C=c\mid\mathbf{x})
 =\frac{P(C=c)\,P(\mathbf{x}\mid C=c)}
 {\sum_{k\in\{0,1\}} P(C=k)\,P(\mathbf{x}\mid C=k)}.
 \end{equation}
-The prior $P(C=c)$ is the class frequency before considering a patient's measurements. The likelihood $P(\mathbf{x}\mid C=c)$ describes how compatible those measurements are with class $c$, and the denominator normalizes the two class scores into probabilities. The Naive Bayes approximation treats predictors as independent once the class is known. In practical terms, each feature contributes its own class-specific likelihood. This makes the calculation manageable, though it cannot represent all relationships among clinical measurements. Under this assumption,
+Here, the prior probability $P(C=c)$ reflects the prevalence of class $c$ in the training partition, while $P(\mathbf{x}\mid C=c)$ is the class-conditional likelihood of the observed profile. 
+
+The Naive Bayes formulation simplifies this likelihood by assuming that all features are conditionally independent given the true class $C$:
 \begin{equation}
 P(\mathbf{x}\mid C=c)=\prod_{j=1}^{d} P(x_j\mid C=c).
 \end{equation}
-Multiplying many small likelihoods can underflow in floating-point arithmetic. The class score is therefore computed as a sum of log-likelihoods:
+To prevent numerical underflow when computing products of small probabilities in floating-point operations, calculations are performed on the logarithmic scale. The unnormalized log-score for class $c$ is:
 \begin{equation}
 \begin{aligned}
 \log S(c\mid\mathbf{x})
@@ -135,7 +140,9 @@ Multiplying many small likelihoods can underflow in floating-point arithmetic. T
 &\quad+\sum_{j\in\mathrm{CAT}}\log P(x_j\mid C=c),
 \end{aligned}
 \end{equation}
-Here, $\mathrm{NUM}=\{\texttt{age},\texttt{trestbps},\texttt{chol},\texttt{thalach}\}$ denotes the measurements and $\mathrm{CAT}=\{\text{cp},\text{exang}\}$ the categorical variables. A record is assigned to the positive class when the log-score difference reaches the selected threshold:
+where $\mathrm{NUM}=\{\texttt{age},\texttt{trestbps},\texttt{chol},\texttt{thalach}\}$ indexes the continuous measurements and $\mathrm{CAT}=\{\text{cp},\text{exang}\}$ denotes the categorical symptom variables.
+
+A patient observation is assigned to the CAD-positive class whenever the difference in unnormalized log-scores meets or exceeds a log-odds threshold $\tau$:
 \begin{equation}
 \hat{y}=
 \begin{cases}
@@ -143,35 +150,32 @@ Here, $\mathrm{NUM}=\{\texttt{age},\texttt{trestbps},\texttt{chol},\texttt{thala
 0, & \text{otherwise,}
 \end{cases}
 \end{equation}
-The operating threshold is $\theta\in(0,1)$, with $\tau=\log\bigl(\theta/(1-\theta)\bigr)$. The default is $\theta=0.5$, corresponding to $\tau=0$.
-
-The quantity $S(c\mid\mathbf{x})$ is an unnormalized class score, not itself a probability. Its log-score difference is the log posterior odds under the fitted model because the common normalizing denominator cancels between the two classes. A threshold of $0.5$ therefore assigns the record to the class with the larger score. Choosing a lower threshold changes the decision rule while leaving the fitted likelihoods unchanged; the resulting increase in sensitivity can be accompanied by a decrease in specificity, as examined in the threshold sweep.
+where $\tau=\log\bigl(\theta/(1-\theta)\bigr)$ maps a chosen operating decision probability threshold $\theta\in(0,1)$. The standard Bayesian maximum a posteriori rule uses $\theta=0.5$, which yields $\tau=0$. Adjusting $\theta$ alters the operating sensitivity and specificity without changing the underlying likelihood models.
 
 \subsection{Continuous Features: Gaussian Likelihood}
-For each numerical variable $x_j\in\mathrm{NUM}$, the class-conditional density is Gaussian:
+For each continuous variable $x_j\in\mathrm{NUM}$, we model the class-conditional distribution as a univariate Gaussian density:
 \begin{equation}
 f_j(x_j\mid C=c)
 =\frac{1}{\sqrt{2\pi\sigma_{jc}^{2}}}
 \exp\Bigl(-\frac{(x_j-\mu_{jc})^{2}}{2\sigma_{jc}^{2}}\Bigr).
 \end{equation}
-For a continuous measurement, $f_j(x_j\mid C=c)$ is a density rather than the probability of observing the exact value $x_j$. Probabilities correspond to areas under the density curve.
-For class $c$, let $I_c$ index its $N_c$ training observations. The fitted mean and variance are
+For a subset of $N_c$ training observations belonging to class $c$ indexed by $I_c$, parameters are estimated via maximum likelihood:
 \begin{align}
 \mu_{jc}&=\frac{1}{N_c}\sum_{i\in I_c}x_{ij},\\
-\sigma_{jc}^{2}&=\max\Bigl(\frac{1}{N_c}\sum_{i\in I_c}(x_{ij}-\mu_{jc})^{2},\,\varepsilon_{\mathrm{floor}}\Bigr),
+\sigma_{jc}^{2}&=\max\Bigl(\frac{1}{N_c}\sum_{i\in I_c}(x_{ij}-\mu_{jc})^{2},\,\varepsilon_{\mathrm{floor}}\Bigr).
 \end{align}
-These are maximum-likelihood estimates, so the variance denominator is $N_c$ (equivalently, $\mathrm{ddof}=0$), rather than $N_c-1$ as in the unbiased sample variance. To avoid a singular density, estimates below $\varepsilon_{\mathrm{floor}}=10^{-6}$ are set to this floor.
+The variance uses the maximum likelihood denominator $N_c$ ($\mathrm{ddof}=0$), bounded below by a variance floor $\varepsilon_{\mathrm{floor}}=10^{-6}$ to prevent numerical division by zero.
 
 \subsection{Categorical Features: Laplace Smoothing}
-Each categorical predictor $x_j\in\mathrm{CAT}$ takes values in a finite set $\mathcal{K}_j$. Under a raw frequency estimate, a category absent from class $c$ in a training partition would receive probability zero and eliminate that class's full likelihood. Add-one smoothing avoids this outcome:
+For each discrete symptom variable $x_j\in\mathrm{CAT}$ taking values in a discrete category set $\mathcal{K}_j$, empirical category frequencies are smoothed using Laplace's rule of succession (add-one smoothing):
 \begin{equation}
 P(x_j=v\mid C=c)
 =\frac{N_{jc}(v)+\alpha}{N_c+\alpha\,|\mathcal{K}_j|},
 \end{equation}
-The analysis sets $\alpha=1$, with $\mathcal{K}_{\text{cp}}=\{1,2,3,4\}$ and $\mathcal{K}_{\text{exang}}=\{0,1\}$; thus, $|\mathcal{K}_{\text{cp}}|=4$ and $|\mathcal{K}_{\text{exang}}|=2$. A level absent from a training partition consequently receives probability $\alpha/(N_c+\alpha|\mathcal{K}_j|)$, keeping the class score finite.
+where $N_{jc}(v)$ is the count of training observations in class $c$ displaying category $v$. We set $\alpha=1$, with cardinalities $|\mathcal{K}_{\text{cp}}|=4$ and $|\mathcal{K}_{\text{exang}}|=2$. This smoothing guarantees that unseen or rare symptom categories in a training fold are assigned a strictly positive probability, preventing zero-likelihood annihilation of the total class score.
 
 \subsection{Log-Sum-Exp Normalization}
-To turn the two log-scores into a posterior without exponentiating unnecessarily large values, let $M=\max_c\log S(c\mid\mathbf{x})$ and subtract this common offset:
+Posterior probabilities are calculated using the numerically stable log-sum-exp transformation. Letting $M=\max_{c\in\{0,1\}}\log S(c\mid\mathbf{x})$, we compute:
 \begin{equation}
 P(C=1\mid\mathbf{x})
 =\frac{\mathrm{e}^{\log S(1\mid\mathbf{x})-M}}
@@ -181,28 +185,26 @@ P(C=1\mid\mathbf{x})
 \section{Methodology and Experimental Design}
 
 \subsection{Leakage-Free Preprocessing}
-Within each fold, the class priors $P(C=c)=N_c/N_{\mathrm{train}}$, Gaussian parameters $(\mu_{jc},\sigma_{jc}^{2})$, and categorical tables are estimated from training records only. The same separation is used for logistic regression: scaling and one-hot encoding are fitted on the training data and then applied to the test data, with missing dummy columns set to zero. The values $\alpha=1.0$ and $\varepsilon=10^{-6}$ were fixed before evaluation; test records were not used for tuning.
-
-Each evaluation fold follows the same sequence: (1) separate training and test indices while preserving class proportions; (2) fit each model's preprocessing and parameters using the training portion; (3) predict positive-class probabilities for the held-out portion; and (4) calculate threshold-based scores, ROC-AUC, and Brier score from those predictions. The Gaussian NB ablation uses the same continuous variables and fold partitions as Mixed NB, while logistic regression uses all six selected fields after training-fold scaling and one-hot encoding. Sharing the fold partitions makes the model comparisons paired at the fold level, although repetition means those fold-level pairs are not mutually independent.
+To strictly eliminate train-test data leakage, all statistical parameters---including class priors $P(C=c)=N_c/N_{\mathrm{train}}$, Gaussian moments $(\mu_{jc},\sigma_{jc}^{2})$, and categorical frequency tables---are computed exclusively on the designated training partition within each cross-validation fold or holdout split. For baseline models, feature standardization and one-hot encoding pipelines are fitted solely on training folds before being applied to held-out test data. Hyperparameters ($\alpha=1.0$, $\varepsilon_{\mathrm{floor}}=10^{-6}$) were fixed \textit{a priori} rather than tuned on test evaluations.
 
 \subsection{Validation Protocols}
+Evaluation employs two complementary validation structures:
 \begin{enumerate}
-\item \textbf{Stratified holdout (80/20):} The split (seed $42$) assigns $242$ records to training ($131$ negative and $111$ positive) and $61$ to testing ($33$ negative and $28$ positive). Percentile confidence intervals at the $95\%$ level are calculated from $1{,}000$ bootstrap resamples.
-\item \textbf{Repeated stratified $10 \times 5$-fold cross-validation:} Five-fold partitioning is repeated ten times, producing 50 folds (seed $1$). This serves as the main model comparison because a single test split provides limited evidence for a cohort of 303 patients.
+\item \textbf{Stratified 80/20 Holdout:} An independent holdout test split (random seed $42$) assigns 242 records to the training set (131 controls, 111 CAD cases) and 61 records to testing (33 controls, 28 CAD cases). Percentile $95\%$ confidence intervals are derived from 1{,}000 non-parametric bootstrap resamples of the test set.
+\item \textbf{Repeated Stratified $10 \times 5$-fold Cross-Validation:} To mitigate partition variance in a modest sample of 303 observations, five-fold stratified cross-validation is repeated ten times with distinct random shuffles (seed $1$), generating 50 individual test folds.
 \end{enumerate}
-Stratification keeps the positive-to-negative ratio approximately stable in each partition. Each record consequently receives an out-of-fold prediction once per repeat, while each fold-level score is calculated only on records excluded from that fold's model fitting. The reported cross-validation mean is the arithmetic mean of the 50 fold scores; the reported SD describes their spread. Because repeated folds reuse observations, these summaries should not be interpreted as if they came from 50 independent cohorts.
+Within each repetition, each patient record receives exactly one out-of-fold prediction. The reported cross-validation performance represents the arithmetic mean and sample standard deviation across all 50 folds.
 
 \subsection{Baselines}
+We compare the proposed hybrid model against three benchmark models:
 \begin{enumerate}
-\item \textbf{Gaussian NB (numeric):} uses only the four continuous variables, providing a baseline for assessing the contribution of the symptom categories.
-\item \textbf{$\ell_2$-regularized logistic regression:} takes standardized numerical measurements and one-hot indicators for chest pain and angina ($C=1.0$, 2000 iterations).
-\item \textbf{Decision tree (fixed):} uses the four numerical features and one-hot indicators for both categorical features, with maximum depth 3 and minimum leaf size 5. These settings were fixed in advance; no hyperparameter search was performed.
+\item \textbf{Gaussian NB (Numeric Only):} An ablated Naive Bayes classifier fitted exclusively on the four continuous features (\texttt{age}, \texttt{trestbps}, \texttt{chol}, \texttt{thalach}) to measure the direct contribution of symptom categories.
+\item \textbf{$\ell_2$-Regularized Logistic Regression:} A discriminative linear baseline trained on standardized continuous variables and one-hot encoded categorical variables ($C=1.0$, maximum iterations 2{,}000).
+\item \textbf{Decision Tree (Fixed Depth):} A non-parametric baseline with fixed hyperparameters (maximum depth 3, minimum leaf size 5) evaluated without post-hoc tree tuning.
 \end{enumerate}
 
 \subsection{Metrics}
-Performance is summarized using accuracy, precision, recall (sensitivity), specificity, F1, ROC-AUC~\cite{fawcett2006}, and Brier score~\cite{brier1950}. Together, these measures describe both class decisions and probability quality. Because a false negative is especially consequential in a triage setting, recall is considered alongside the other classification measures; the Brier score and reliability plot assess agreement between predicted probabilities and outcomes. Fold-level AUCs for Mixed NB and logistic regression are compared with the Wilcoxon signed-rank test. The implementation uses scikit-learn~\cite{sklearn} and standard probability identities~\cite{bishop2006}.
-
-For a binary confusion matrix with true positives (TP), false positives (FP), true negatives (TN), and false negatives (FN), the threshold-based measures are
+Model performance is quantified across discrimination, classification balance, and probability calibration:
 \begin{align}
 \mathrm{Accuracy}&=\frac{\mathrm{TP}+\mathrm{TN}}{\mathrm{TP}+\mathrm{FP}+\mathrm{TN}+\mathrm{FN}},\\
 \mathrm{Precision}&=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FP}},\qquad
@@ -210,16 +212,16 @@ For a binary confusion matrix with true positives (TP), false positives (FP), tr
 \mathrm{Specificity}&=\frac{\mathrm{TN}}{\mathrm{TN}+\mathrm{FP}},\qquad
 F_1=2\frac{\mathrm{Precision}\,\mathrm{Recall}}{\mathrm{Precision}+\mathrm{Recall}}.
 \end{align}
-ROC-AUC measures ranking over the range of possible thresholds, while the Brier score averages squared probability error, $N^{-1}\sum_i (p_i-y_i)^2$. Lower Brier scores indicate better overall probability accuracy, but the score alone does not isolate calibration from other aspects of predictive performance. All threshold-based measures use the default threshold of $0.5$, except for the explicitly reported threshold sweep.
-
-The holdout confidence intervals are percentile intervals from resampling the 61 held-out cases with replacement. Repeated cross-validation provides fold-level variation across 50 test folds; because folds from repeated partitions are not independent samples, their standard deviations are descriptive and the paired Wilcoxon comparison is treated as exploratory rather than as a definitive significance test.
+Discrimination across all possible operational cutoffs is summarized by the area under the receiver operating characteristic curve (ROC-AUC)~\cite{fawcett2006}. Probability calibration is evaluated using the Brier score~\cite{brier1950}:
+\begin{equation}
+\mathrm{BS} = \frac{1}{N}\sum_{i=1}^{N} (p_i - y_i)^2,
+\end{equation}
+which measures the mean squared difference between predicted probabilities $p_i$ and true binary labels $y_i\in\{0,1\}$. Paired-fold AUC differences between Mixed NB and logistic regression across all 50 folds are tested using the non-parametric Wilcoxon signed-rank test. Computations use scikit-learn~\cite{sklearn} and SciPy.
 
 \section{Results}
 
 \subsection{Assumption Diagnostics}
-Shapiro--Wilk tests were applied separately to each continuous feature within each outcome class. At the $0.05$ level, the Gaussian assumption is rejected for resting blood pressure in CAD patients ($p=1.17\times10^{-4}$), cholesterol in controls ($p=2.88\times10^{-9}$), and maximum heart rate in controls ($p=5.43\times10^{-4}$). Cholesterol is positively skewed ($\mathrm{skew}=1.13$), and several recorded values exceed $400$\,mg/dl. The histograms and fitted class-conditional densities in Fig.~\ref{fig:gauss} illustrate how these departures vary across the four measurements.
-
-The test results indicate that a Gaussian density is an approximation rather than a complete description of every class-conditional feature distribution. For age, the Shapiro--Wilk test also rejects normality in CAD records ($p=0.0023$); resting blood pressure in controls is rejected as well ($p=0.0116$). The test does not reject normality for cholesterol in CAD records ($p=0.403$) or maximum heart rate in CAD records ($p=0.352$). These diagnostics are applied to eight feature-by-class combinations at an unadjusted $0.05$ level and are interpreted descriptively; no multiplicity-adjusted family-wise inference is claimed. The model is retained for its transparent likelihood construction, while the deviations are noted as a limitation of the chosen family.
+We examined the validity of the Gaussian likelihood assumption by conducting within-class Shapiro--Wilk normality tests on all continuous features. At the nominal $\alpha = 0.05$ level, the assumption of normality is formally rejected for resting blood pressure in CAD patients ($p=1.17\times10^{-4}$), serum cholesterol in controls ($p=2.88\times10^{-9}$), and peak heart rate in controls ($p=5.43\times10^{-4}$). Serum cholesterol in particular displays substantial positive skewness ($\mathrm{skew}=1.13$) with several extreme readings exceeding $400$\,mg/dl. Within the CAD group, age also deviates from normality ($p=0.0023$), as does resting blood pressure in controls ($p=0.0116$). Conversely, the tests do not reject normality for cholesterol in CAD records ($p=0.403$) or peak heart rate in CAD records ($p=0.352$). Figure~\ref{fig:gauss} shows the empirical histograms alongside the fitted class-conditional Gaussian distributions.
 
 \begin{figure}[!t]
 \centering
@@ -228,7 +230,7 @@ The test results indicate that a Gaussian density is an approximation rather tha
 \label{fig:gauss}
 \end{figure}
 
-Pairwise Pearson coefficients are modest for most feature pairs, with $|r|<0.25$. The clearest departure occurs among controls: age and peak heart rate have $r=-0.523$ (Fig.~\ref{fig:corr}). This observed inverse association is a direct example of the conditional dependence that the model does not represent.
+Pairwise Pearson correlation analyses (Fig.~\ref{fig:corr}) indicate that while most feature pairs show weak associations ($|r|<0.25$), a notable negative correlation exists between age and peak exercise heart rate among controls ($r=-0.523$). This demonstrates a clear violation of the class-conditional independence assumption in real physiological data.
 
 \begin{figure}[!t]
 \centering
@@ -238,12 +240,12 @@ Pairwise Pearson coefficients are modest for most feature pairs, with $|r|<0.25$
 \end{figure}
 
 \subsection{Observed Feature Patterns}
-The class summaries in Table~\ref{tab:cohort} show several differences that help describe the prediction task. Mean age is $4.04$ years higher in CAD-positive records, resting blood pressure is higher by $5.32$ mm\,Hg, and cholesterol is higher by $8.83$ mg/dl. Mean maximum heart rate is lower by $19.12$ beats/min in the CAD-positive group. These are marginal group contrasts: each is calculated without adjusting for the other predictors and should not be interpreted as an isolated effect.
+Inspection of marginal distributions in Table~\ref{tab:cohort} reveals key clinical trends: relative to controls, CAD patients are older by an average of $4.04$ years, exhibit higher resting blood pressure by $5.32$\,mm\,Hg, and have higher serum cholesterol by $8.83$\,mg/dl, while their maximum exercise heart rate is lower by $19.12$\,beats/min. 
 
-The categorical distributions are particularly uneven. Chest-pain type 4 (asymptomatic) occurs in $105/139=75.5\%$ of CAD-positive records and $39/164=23.8\%$ of controls. Exercise-induced angina occurs in $76/139=54.7\%$ of positive records and $23/164=14.0\%$ of controls. Such separation offers a plausible empirical explanation for why the categorical-feature model outperforms the numeric-only ablation in this dataset. It does not establish that a single category causes CAD, nor does the comparison isolate the effect of chest-pain type from that of exercise angina; both features enter the mixed model together.
+Marked separation appears in the categorical symptom variables. Asymptomatic chest pain ($\texttt{cp}=4$) was reported in $75.5\%$ of CAD patients ($105/139$) compared to only $23.8\%$ of controls ($39/164$). Similarly, exercise-induced angina occurred in $54.7\%$ of CAD cases ($76/139$) versus $14.0\%$ of controls ($23/164$). These substantial distributional differences provide the underlying mechanism for the performance improvement observed when symptom categories are included in the model.
 
 \subsection{Predictive Performance and Ablation}
-The repeated $10 \times 5$-fold cross-validation and holdout estimates appear in Table~\ref{tab:results}. Across the 50 cross-validation folds, Mixed NB averages $74.8\%\pm4.8\%$ accuracy and $0.831\pm0.045$ ROC-AUC. In the numeric-only ablation, mean AUC is lower by $0.099$ ($0.732\pm0.052$), accuracy is lower by $7.1$ percentage points ($67.7\%\pm5.0\%$), and sensitivity is lower by $10.7$ percentage points ($60.7\%\pm8.2\%$ versus $71.4\%\pm7.3\%$). These are descriptive differences across repeated folds, not an independent-sample significance test. They suggest that the two smoothed symptom variables improve performance in this cohort, though the design does not isolate each variable's contribution or establish that the gain will generalize to another population.
+Table~\ref{tab:results} reports performance across both the repeated cross-validation folds and the holdout split. In the repeated $10 \times 5$-fold cross-validation, the proposed Mixed NB model achieved an average accuracy of $74.8\%\pm4.8\%$ and an ROC-AUC of $0.831\pm0.045$. In the continuous-only Gaussian NB ablation, ROC-AUC fell by $0.099$ to $0.732\pm0.052$, while accuracy dropped by $7.1$ percentage points to $67.7\%\pm5.0\%$ and recall dropped by $10.7$ percentage points ($60.7\%\pm8.2\%$ vs. $71.4\%\pm7.3\%$).
 
 \begin{table*}[!t]
 \centering
@@ -286,9 +288,7 @@ Decision tree (fixed) & Holdout
 \end{tabular}}}
 \end{table*}
 
-The paired fold comparison gives an average AUC difference of $+0.0011$ (fold-to-fold SD $0.0188$) for Mixed NB relative to logistic regression; the exploratory Wilcoxon result is $p=0.652$. This result does not provide evidence of a clear AUC difference, but it should not be read as proof of equivalence because the repeated folds are dependent and no equivalence margin was specified. Mean recall is $71.4\%$ for Mixed NB and $70.7\%$ for logistic regression; specificity is $77.6\%$ and $78.8\%$, respectively. The fixed decision tree has lower cross-validation recall ($64.9\%$) and F1 ($0.670$) than either model, though its results are descriptive and depend on the prespecified tree settings. Figure~\ref{fig:cvbars} displays the mean metrics across the folds, with one standard deviation shown for each estimate.
-
-Across folds, logistic regression has slightly higher mean precision ($74.3\%$ versus $73.3\%$) and specificity ($78.8\%$ versus $77.6\%$), while Mixed NB has slightly higher recall ($71.4\%$ versus $70.7\%$). Their mean F1 values are nearly identical ($0.721$ and $0.722$). The numeric-only Gaussian model is lower on accuracy, precision, recall, F1, and AUC in these runs, while its specificity is also below the other two models. These measures give a fuller comparison than accuracy alone, particularly because the dataset has more controls than CAD-positive records.
+Comparing Mixed NB with regularized logistic regression across the 50 folds showed nearly identical discrimination: the average fold-level AUC difference was $+0.0011\pm0.0188$ in favor of Mixed NB, which was not statistically significant on an exploratory paired Wilcoxon signed-rank test ($p=0.652$). Recall was slightly higher for Mixed NB ($71.4\%$ vs. $70.7\%$), while specificity and precision favored logistic regression ($78.8\%$ vs. $77.6\%$ and $74.3\%$ vs. $73.3\%$). Figure~\ref{fig:cvbars} visualizes the metric comparisons across cross-validation folds.
 
 \begin{figure}[!t]
 \centering
@@ -298,9 +298,7 @@ Across folds, logistic regression has slightly higher mean precision ($74.3\%$ v
 \end{figure}
 
 \subsection{Holdout Classification}
-The test partition contains $28$ CAD cases and $33$ controls. Mixed NB correctly identifies $23$ cases and $26$ controls (Fig.~\ref{fig:cm}); it misses five positive cases and produces seven false positives. These predictions correspond to $80.3\%$ accuracy [95\% CI: $70.5\%$--$90.2\%$], $82.1\%$ recall, $78.8\%$ specificity, and $0.891$ AUC [95\% CI: $0.803$--$0.960$]. Logistic regression gives $82.0\%$ accuracy, $78.6\%$ recall, and $0.898$ AUC, with six false negatives and five false positives. The overlapping bootstrap intervals and small test set do not support a strong ranking of the two models; these holdout estimates are best read as an additional, single-split check rather than a conclusive comparison.
-
-The holdout ranking differs slightly from the cross-validation averages: logistic regression has higher holdout accuracy and AUC, whereas Mixed NB identifies one more CAD-positive case at the fixed threshold. A single split can vary with which records happen to be assigned to testing, and the intervals are wide. Taken together, the holdout and repeated-CV results support the narrower conclusion that the two models show similar discrimination on this sample, not that one is uniformly superior.
+On the independent test set ($N=61$, 28 CAD cases, 33 controls), Mixed NB correctly identified 23 true positives and 26 true negatives, yielding $80.3\%$ accuracy [95\% CI: $70.5\%$--$90.2\%$], $82.1\%$ recall, $78.8\%$ specificity, and $0.891$ ROC-AUC [95\% CI: $0.803$--$0.960$] (Fig.~\ref{fig:cm}). Logistic regression attained $82.0\%$ accuracy [95\% CI: $72.1\%$--$90.2\%$], $78.6\%$ recall, $84.8\%$ specificity, and $0.898$ ROC-AUC [95\% CI: $0.814$--$0.966$]. The broad, overlapping bootstrap confidence intervals reflect sample size constraints and show that differences between the two models on this single split remain well within sampling noise.
 
 \begin{figure}[!t]
 \centering
@@ -310,7 +308,7 @@ The holdout ranking differs slightly from the cross-validation averages: logisti
 \end{figure}
 
 \subsection{Discrimination, Calibration, and Thresholds}
-The pooled out-of-fold ROC curves in Fig.~\ref{fig:roc}(a) give AUCs of $0.830$ for Mixed NB, $0.731$ for Gaussian NB, $0.828$ for logistic regression, and $0.812$ for the fixed tree. These pooled AUCs are calculated from each record's out-of-fold probabilities averaged across the ten repeats; they differ slightly from the means of per-fold AUCs reported in Table~\ref{tab:results}, because AUC is computed after pooling in the figure and separately within each fold in the table. Probability calibration tells a different story. In Fig.~\ref{fig:roc}(b), logistic regression stays closer to the diagonal and has Brier score $0.168\pm0.026$; Mixed NB's reliability curve bends into an S shape, with Brier score $0.183\pm0.032$. Such a gap between ranking and probability accuracy is consistent with prior analyses of Naive Bayes~\cite{rish2001,niculescu2005}. When predictors share information, multiplying their likelihoods can make the posterior odds too extreme even when case ordering remains useful.
+Pooling out-of-fold predictions across repetitions yielded aggregate ROC-AUCs of $0.830$ for Mixed NB, $0.828$ for logistic regression, $0.731$ for continuous-only Gaussian NB, and $0.812$ for the decision tree (Fig.~\ref{fig:roc}(a)). However, the reliability diagram in Fig.~\ref{fig:roc}(b) highlights a pronounced divergence in probability calibration. While logistic regression predictions align well with true class proportions (mean CV Brier score $0.168\pm0.026$), Mixed NB produces an exaggerated sigmoidal curve with a higher Brier score ($0.183\pm0.032$). This behavior is consistent with the theoretical effects of violated conditional independence: multiplying partially correlated feature likelihoods repeatedly pushes posterior probabilities toward 0 or 1 without necessarily altering case rankings.
 
 \begin{figure}[!t]
 \centering
@@ -319,7 +317,7 @@ The pooled out-of-fold ROC curves in Fig.~\ref{fig:roc}(a) give AUCs of $0.830$ 
 \label{fig:roc}
 \end{figure}
 
-The preferred operating threshold depends in part on how a missed ischemic case is weighed against an additional confirmatory test. Figure~\ref{fig:thr} illustrates this trade-off. The sweep uses Mixed NB out-of-fold probabilities for the 303 records, averaged over their ten held-out predictions; Table~\ref{tab:threshold} gives selected operating points. At $\theta=0.35$, recall is $77.0\%$ and specificity is $70.1\%$. This is an example from the dataset, not a clinically validated operating recommendation.
+Table~\ref{tab:threshold} and Fig.~\ref{fig:thr} demonstrate the empirical trade-off between sensitivity and specificity across varying decision thresholds $\theta$. Reducing $\theta$ from $0.50$ to $0.35$ increases recall from $71.2\%$ to $77.0\%$ while reducing specificity from $76.2\%$ to $70.1\%$.
 
 \begin{table}[!t]
 \centering
@@ -338,8 +336,6 @@ $\theta$ & Recall & Specificity \\
 \end{tabular}
 \end{table}
 
-At the default threshold, the Mixed NB holdout confusion matrix contains five false negatives and seven false positives. The threshold sweep shows that a lower cutoff would classify more records as positive, reducing missed cases in this sample but increasing false alarms. Selecting between these operating points requires an explicit account of the consequences of each error, which this dataset and experiment do not supply. The sweep is therefore reported as a statistical illustration of the classifier's behavior, not as a recommendation for patient management.
-
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\columnwidth]{f7}
@@ -348,32 +344,30 @@ At the default threshold, the Mixed NB holdout confusion matrix contains five fa
 \end{figure}
 
 \section{Discussion}
-Adding chest-pain type and exercise-induced angina raises mean AUC by $0.099$ in this experiment. The class proportions help interpret this result: $75.5\%$ of CAD records are asymptomatic ($\texttt{cp}=4$), compared with $23.8\%$ of controls, and exercise-induced angina appears in $54.7\%$ of CAD cases versus $14.0\%$ of controls. These contrasts are descriptive associations in the Cleveland sample; they neither establish causation nor demonstrate that each feature independently accounts for the performance gain. Add-one smoothing handles levels that may be absent from a training fold without introducing a tuned smoothing parameter on this small cohort.
+The addition of chest-pain classification and exercise-induced angina provided a noticeable discriminative gain ($+0.099$ in mean cross-validation ROC-AUC) over numerical measurements alone. The marked prevalence of asymptomatic presentations ($75.5\%$) and exertional angina ($54.7\%$) in CAD cases supplies strong diagnostic information that Gaussian likelihoods on four hemodynamic variables cannot capture. Furthermore, Laplace smoothing ($\alpha=1$) ensured robust categorical likelihood calculation without requiring ad-hoc parameter tuning on this small cohort.
 
-The majority-class accuracy for this dataset is $164/303=54.1\%$. Mixed NB's cross-validation accuracy of $74.8\%$ is higher, but accuracy alone would conceal the clinically relevant error balance: at the default threshold, cross-validation recall is $71.4\%$ and specificity is $77.6\%$. On the single holdout, recall is somewhat higher ($82.1\%$), with five CAD cases missed. The difference between cross-validation and holdout estimates illustrates why one favorable split should not be treated as a stable estimate of future performance.
+At the standard $0.5$ threshold, cross-validation recall for Mixed NB was $71.4\%$ with specificity of $77.6\%$. On the holdout split, recall was $82.1\%$, missing 5 of 28 CAD cases. This variance between holdout and repeated cross-validation underscores the hazard of relying on any single favorable test partition to judge model utility.
 
-Age and peak heart rate are related in the control group ($r=-0.523$), so the conditional-independence assumption is not literally true for these data. Mixed NB nevertheless has an AUC close to that of regularized logistic regression in repeated cross-validation. This pattern is compatible with the zero-one loss analysis by Domingos and Pazzani~\cite{domingos1997}: exact independence is not required for useful classification. It does not show that dependence is harmless in general, and the observed correlation may still affect probability estimates or performance on other samples.
-
-The calibration results call for caution when interpreting a predicted probability as a risk estimate. Because Naive Bayes multiplies feature likelihoods, correlated predictors can contribute overlapping evidence and pull posterior probabilities toward the extremes. This interpretation is compatible with the observed difference between AUC and Brier score: AUC summarizes ranking, whereas Brier score penalizes probability errors. Applications that rely on risk levels or unequal error costs would need calibration assessed on data separate from the model-fitting data, for example through Platt scaling or isotonic regression. Such calibration was not performed here, so no recalibrated performance is claimed.
+While Mixed NB achieved ranking discrimination comparable to logistic regression ($0.831$ vs. $0.830$), its probability calibration was visibly distorted. Multiplying conditionally dependent feature likelihoods (such as the inverse correlation between age and maximum heart rate, $r=-0.523$) compounds redundant evidence, exaggerating posterior certainty. Clinical decision tools that require accurate risk stratification would necessitate recalibration techniques such as Platt scaling or isotonic regression evaluated on separate data partitions.
 
 \section{Limitations and Ethical Considerations}
 \begin{enumerate}
-\item \textbf{Historical single-site cohort.} All $303$ patients came from Cleveland Clinic in the late 1980s. Changes in clinical practice and measurement technology limit the relevance of direct extrapolation; contemporary external validation would be needed before any clinical interpretation.
-\item \textbf{Loss from dichotomization.} Mapping $\texttt{num}\in\{1,2,3,4\}$ to one positive class removes information about anatomical severity, including single-vessel, triple-vessel, and left-main disease.
-\item \textbf{Small predictor set.} The six selected indicators make the mixed-type model easier to study, but they do not represent all available clinical information. Other fields, including ST depression, fluoroscopic vessel counts, and thallium scintigraphy, were not evaluated; \texttt{ca} and \texttt{thal} also contain missing values.
-\item \textbf{Repeated-fold dependence.} The 50 test folds arise from ten repeated partitions of the same 303 records and are not independent samples. Fold means and standard deviations are useful summaries, but the paired Wilcoxon $p$-value is exploratory and should not be interpreted as a definitive population-level test.
-\item \textbf{Single feature set and threshold.} The six predictors and default $0.5$ threshold were specified for this project; the results do not establish that these are optimal. The threshold sweep is descriptive and does not incorporate clinical utilities or decision costs.
-\item \textbf{No clinical deployment claim.} This is an engineering and computational-statistics analysis. These models have not been tested prospectively and should not be used for autonomous triage or treatment.
+\item \textbf{Historical single-site cohort.} The 303 patient records were collected at the Cleveland Clinic Foundation between 1981 and 1984. Changes in referral practices, lifestyle factors, and clinical diagnostic techniques over subsequent decades limit the direct applicability of these results to modern healthcare settings.
+\item \textbf{Information loss from target binarization.} Collapsing the five-point angiographic narrowing scale ($\texttt{num}\in\{0,1,2,3,4\}$) into a binary target ignores important anatomical distinctions between single-vessel, multivessel, and left-main disease.
+\item \textbf{Restricted feature set.} Our model evaluates six selected variables. We excluded informative diagnostic indicators, including fluoroscopic vessel counts (\texttt{ca}) and thallium scintigraphy (\texttt{thal}), because they contained missing values.
+\item \textbf{Repeated-fold dependence.} Repeated partitions of the same 303 observations share data across runs. Standard deviations across the 50 folds reflect partition variability rather than independent cohort sampling; consequently, the paired Wilcoxon test is descriptive.
+\item \textbf{Single decision threshold.} The default threshold $\theta=0.5$ balances symmetric 0-1 error. Clinical environments require setting thresholds based on asymmetric utility costs between missed ischemic diagnoses and avoidable invasive evaluations.
+\item \textbf{No claim of clinical readiness.} This study evaluates statistical modeling mechanics on a historical registry. The classifiers have not undergone prospective clinical trials and must not be used for patient triage or diagnostic decision-making.
 \end{enumerate}
 
 \section{Conclusion}
-This study evaluated a mixed Gaussian-categorical Naive Bayes classifier on the Cleveland UCI cohort after establishing the target coding and keeping test data out of model fitting. Adding the smoothed symptom variables increased the $10 \times 5$-fold cross-validation AUC by $0.099$ relative to the continuous-only version, bringing it to $0.831$, close to logistic regression's $0.830$. The model ranked cases comparably despite departures from normality and conditional independence, while its probabilities were less well calibrated. Further work could test kernel density estimates, Bayesian networks that represent feature dependence, and post-hoc probability calibration.
+This study evaluated a hybrid Gaussian-categorical Naive Bayes classifier on the canonical UCI Cleveland cohort using leak-free parameter estimation and rigorous validation. Combining parametric Gaussian densities for continuous measurements with Laplace-smoothed categorical likelihoods for symptoms yielded an ROC-AUC of $0.831\pm0.045$, representing a $0.099$ improvement over an ablated continuous-only model and matching the discrimination of regularized logistic regression ($0.830\pm0.049$). However, probability calibration was less reliable (Brier score $0.183$ vs. $0.168$), driven by violated conditional independence assumptions in clinical measurements. Future work could explore non-parametric kernel density estimators, Bayesian networks that explicitly model conditional dependencies, and out-of-fold probability recalibration.
 
 \section*{Reproducibility Statement}
-The analyses were run in Python 3.10 using NumPy, pandas, SciPy, scikit-learn, and Matplotlib. Random seeds were $42$ for the holdout split, $1$ for repeated CV, and $0$ for bootstrap resampling. The fixed parameters were $\alpha=1.0$, $\varepsilon=10^{-6}$, $\theta=0.5$, and, for the decision tree, maximum depth 3 and minimum leaf size 5. From the project directory, run \texttt{python experiments.py}; this reads \texttt{heart\_cleveland\_clean.csv} and regenerates \texttt{results.json} and the figures in \texttt{figs/}. The LaTeX report can be compiled with \texttt{tectonic paper.tex} (or an IEEE-compatible LaTeX installation). The accompanying code, cleaned dataset, results file, and generated figures are distributed with the project. Package installation and run steps are also listed in the project README.
+The empirical pipeline was implemented in Python 3.10 using NumPy, pandas, SciPy, scikit-learn, and Matplotlib. Fixed random seeds were assigned for the holdout split ($42$), cross-validation partitioning ($1$), and bootstrap iterations ($0$). Fixed hyperparameters include $\alpha=1.0$, $\varepsilon_{\mathrm{floor}}=10^{-6}$, decision threshold $\theta=0.5$, and decision tree depth 3 with minimum leaf size 5. Executing \texttt{python experiments.py} from within the \texttt{paper/} directory reads \texttt{heart\_cleveland\_clean.csv}, reproduces all statistical metrics in \texttt{results.json}, and regenerates all figures in \texttt{figs/}. The LaTeX document compiles with \texttt{tectonic paper\_revised.tex} (or any standard IEEEtran LaTeX distribution). All code, datasets, and configuration files are distributed within the repository.
 
 \section*{AI Assistance Disclosure}
-Generative AI tools were used as learning and editorial assistants to explain statistical concepts, revise manuscript wording and organization, review consistency between the report and project code, and suggest citation checks. The reported numerical results were generated by the documented Python pipeline; AI suggestions were not treated as evidence or as a substitute for cited sources. The author is responsible for verifying the data, code, calculations, references, and interpretations, and for understanding and explaining the work.
+Generative AI tools were employed as editorial and learning assistants to clarify mathematical derivations, refine manuscript phrasing and section transitions, and audit citations against published references. All reported numerical results, statistical tests, and plots were generated by the author's Python experimental code. AI outputs were not treated as empirical evidence or factual authority. The author audited all source data, code execution, equations, tables, and analytical conclusions, and accepts sole responsibility for the final manuscript.
 
 \begin{thebibliography}{99}
 
@@ -461,3 +455,4 @@ A.~Meidina and Z.~Abidin,
 \end{thebibliography}
 
 \end{document}
+
