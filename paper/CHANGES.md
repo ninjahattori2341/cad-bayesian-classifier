@@ -112,4 +112,22 @@ This document tracks all substantive revisions made to the IEEE-style paper, com
 5. **AI Assistance and Authorship Disclosure:**
    - Updated the disclosure to reflect accurate editorial usage (sentence phrasing, manuscript organization, and citation formatting) while maintaining the author's sole responsibility for data verification, mathematical derivations, and conclusions.
 
+---
+
+## 10. Scientific Accuracy Audit & Nomenclature Corrections
+
+1. **Clarification of Outcome Variable `num` vs. Predictor `ca`:**
+   - *Section IV-A (Dataset Provenance):* Corrected the definition of `num` from an anatomic vessel count to the angiographic diagnosis of heart disease ($0$ = absence, $1$--$4$ = presence under dataset coding). Noted explicitly that the count of major vessels visualised by fluoroscopy is captured separately by predictor `ca`, not `num`.
+   - *Section IV-A Target Equation:* Clarified ground-truth text after $C = \mathbb{I}(\texttt{num} > 0)$ as $C=0$ (absence of CAD, $N=164$) and $C=1$ (presence of CAD, $N=139$).
+
+2. **Accurate Limitations Formulation for Target Binarization:**
+   - *Section IX (Limitations, Item 2):* Replaced the claim that binarizing `num` loses distinctions between single-vessel and multivessel disease with the precise statement: *"Collapsing the original categorical outcome ($\texttt{num}\in\{0,1,2,3,4\}$) into a binary target removes distinctions among the original positive diagnostic categories coded $1$ through $4$."*
+
+3. **Correction to Problem Statement Terminology:**
+   - *Section II (Problem Statement):* Changed *"six admission variables"* to *"six selected clinical features"*, accurately reflecting that peak exercise heart rate (`thalach`) is evaluated during treadmill testing rather than baseline intake.
+
+4. **Consistent Calibration Qualification:**
+   - *Abstract & Conclusion:* Consistently qualified violations of class-conditional independence as a *plausible contributing factor rather than a proven sole cause* across the abstract, results, discussion, and conclusion.
+
+
 
