@@ -93,3 +93,23 @@ This document tracks all substantive revisions made to the IEEE-style paper, com
 - **Rationale & Verification:**
   - Every single numerical result, standard deviation, confidence interval, and $p$-value was verified against `results.json`.
 
+---
+
+## 9. Final Scientific Accuracy Review & Refinements
+
+1. **Exact Duplicate Statement Refinement:**
+   - *Abstract, Section I, and Section IV-A:* Replaced claims that unique predictor rows prove independent observations with the precise audit statement: *"no exact duplicate rows exist across the 13 predictor fields, retaining all 303 records."*
+
+2. **Threshold Equation Correction:**
+   - *Section V-A (after Equation 5):* Corrected the mathematical formulation to $\tau = \log\left(\frac{\theta}{1-\theta}\right)$, ensuring the entire fraction is explicitly inside the logarithm.
+
+3. **Reproducibility & Execution Verification:**
+   - *Reproducibility Statement:* Replaced unverified claims with an audited confirmation: verified that executing `python experiments.py` cleanly reads `heart_cleveland_clean.csv`, recalculates all metrics in `results.json`, and regenerates all figures in `figs/` in the project Python environment.
+
+4. **Calibration Discussion Qualification:**
+   - *Abstract, Results (Section VII-E), Discussion (Section VIII), and Conclusion (Section X):* Explicitly qualified feature correlations ($r = -0.523$ between age and maximum heart rate in controls) and violated conditional independence as *plausible contributing mechanisms* rather than proven sole causes of probability distortion.
+
+5. **AI Assistance and Authorship Disclosure:**
+   - Updated the disclosure to reflect accurate editorial usage (sentence phrasing, manuscript organization, and citation formatting) while maintaining the author's sole responsibility for data verification, mathematical derivations, and conclusions.
+
+
